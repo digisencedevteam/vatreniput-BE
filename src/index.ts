@@ -7,7 +7,6 @@ const app = express();
 
 // Connect to MongoDB
 const mongoOptions: ConnectOptions = {};
-
 mongoose
   .connect('mongodb://localhost/vatreniput', mongoOptions)
   .then(() => {
@@ -18,7 +17,7 @@ mongoose
   });
 
 useExpressServer(app, {
-  controllers: [`${__dirname}/controllers/*.ts`],
+  controllers: [`${__dirname}/controllers/**/*Controller.ts`],
 });
 
 app.listen(3001, () => {

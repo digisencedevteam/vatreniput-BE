@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import User from '../models/User';
+import { UserType } from '../types';
 
 export class UserService {
   public async registerUser(
@@ -30,5 +31,12 @@ export class UserService {
     const savedUser = await newUser.save();
 
     return savedUser.toObject(); // Convert the savedUser to a plain JavaScript object
+  }
+
+  public async getUserByEmail(
+    email: string
+  ): Promise<UserType | null> {
+    const user = await User.findOne({ email });
+    return user;
   }
 }
