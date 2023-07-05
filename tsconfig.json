@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "esModuleInterop": true,
+    "strict": true,
+    "moduleResolution": "node",
+    "baseUrl": "./src",
+    "paths": {
+      "*": ["node_modules/*", "src/types/*"]
+    },
+    "experimentalDecorators": true // Add or update this line
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
