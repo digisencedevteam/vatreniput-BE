@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import User from '../models/User';
-import { UserType } from '../types';
+import { UserType } from '../../types';
 
 export class UserService {
   public async registerUser(
