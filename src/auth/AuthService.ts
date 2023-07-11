@@ -12,7 +12,7 @@ export class AuthService {
       { userId },
       this.accessTokenSecret,
       {
-        expiresIn: '15m',
+        expiresIn: '120m',
       }
     );
     return accessToken;

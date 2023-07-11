@@ -7,8 +7,9 @@ const app = express();
 
 // Connect to MongoDB
 const mongoOptions: ConnectOptions = {};
+const uri = process.env.MONGODB_URI;
 mongoose
-  .connect('mongodb://localhost/vatreniput', mongoOptions)
+  .connect(uri || '', mongoOptions)
   .then(() => {
     console.log('Connected to MongoDB');
   })
