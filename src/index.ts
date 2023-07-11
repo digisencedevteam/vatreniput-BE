@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import express from 'express';
 import mongoose, { ConnectOptions } from 'mongoose';
 import { useExpressServer } from 'routing-controllers';
+import { getMetadataArgsStorage } from 'routing-controllers';
 
 const app = express();
 
@@ -25,6 +26,13 @@ console.log('Loading controllers from path: ' + controllerPath);
 useExpressServer(app, {
   controllers: [controllerPath],
 });
+
+console.log(
+  'Loaded controllers: ',
+  getMetadataArgsStorage().controllers.map(
+    (controller) => controller.target.name
+  )
+);
 
 app.listen(port, () => {
   console.log('Server is running on ' + port);

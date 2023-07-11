@@ -3,7 +3,7 @@ import { AuthService } from '../../auth/AuthService';
 import { UserService } from '../services/UserService';
 
 @JsonController('/user')
-export class UserController {
+export default class UserController {
   private userService: UserService;
   private authService: AuthService;
 
