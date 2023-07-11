@@ -8,6 +8,9 @@
     "start": "nodemon --exec ts-node src/index.ts",
     "build": "tsc"
   },
+  "engines": {
+    "node": "14.19.2"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/aseparovic2/vatreniput-BE.git"
