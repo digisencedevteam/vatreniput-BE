@@ -8,6 +8,7 @@ const app = express();
 // Connect to MongoDB
 const mongoOptions: ConnectOptions = {};
 const uri = process.env.MONGODB_URI;
+const port = process.env.PORT || 3001;
 mongoose
   .connect(uri || '', mongoOptions)
   .then(() => {
@@ -21,6 +22,6 @@ useExpressServer(app, {
   controllers: [`${__dirname}/controllers/**/*Controller.ts`],
 });
 
-app.listen(3001, () => {
+app.listen(port, () => {
   console.log('Server is running on http://localhost:3001');
 });
