@@ -11,7 +11,7 @@ const mongoOptions: ConnectOptions = {};
 const uri = process.env.MONGODB_URI;
 const port = process.env.PORT || 3001;
 const controllerExtension = process.env.CONTROLLER_EXTENSION || 'ts';
-const controllerPath = `${__dirname}/controllers/**/*Controller${controllerExtension}`;
+const controllerPath = `${__dirname}/api/controllers/**/*Controller${controllerExtension}`;
 
 mongoose
   .connect(uri || '', mongoOptions)
