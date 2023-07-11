@@ -10,6 +10,8 @@ const mongoOptions: ConnectOptions = {};
 const uri = process.env.MONGODB_URI;
 const port = process.env.PORT || 3001;
 const controllerExtension = process.env.CONTROLLER_EXTENSION || 'ts';
+const controllerPath = `${__dirname}/controllers/**/*Controller${controllerExtension}`;
+
 mongoose
   .connect(uri || '', mongoOptions)
   .then(() => {
@@ -18,11 +20,10 @@ mongoose
   .catch((error) => {
     console.error('Failed to connect to MongoDB:', error);
   });
+console.log('Loading controllers from path: ' + controllerPath);
 
 useExpressServer(app, {
-  controllers: [
-    `${__dirname}/controllers/**/*Controller${controllerExtension}`,
-  ],
+  controllers: [controllerPath],
 });
 
 app.listen(port, () => {
