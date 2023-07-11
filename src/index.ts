@@ -9,6 +9,7 @@ const app = express();
 const mongoOptions: ConnectOptions = {};
 const uri = process.env.MONGODB_URI;
 const port = process.env.PORT || 3001;
+const controllerExtension = process.env.CONTROLLER_EXTENSION || 'ts';
 mongoose
   .connect(uri || '', mongoOptions)
   .then(() => {
@@ -19,7 +20,9 @@ mongoose
   });
 
 useExpressServer(app, {
-  controllers: [`${__dirname}/controllers/**/*Controller.ts`],
+  controllers: [
+    `${__dirname}/controllers/**/*Controller${controllerExtension}`,
+  ],
 });
 
 app.listen(port, () => {
