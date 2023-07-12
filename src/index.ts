@@ -3,6 +3,7 @@ import express from 'express';
 import mongoose, { ConnectOptions } from 'mongoose';
 import { useExpressServer } from 'routing-controllers';
 import { getMetadataArgsStorage } from 'routing-controllers';
+import 'dotenv/config';
 
 const app = express();
 
@@ -10,7 +11,7 @@ const app = express();
 const mongoOptions: ConnectOptions = {};
 const uri = process.env.MONGODB_URI;
 const port = process.env.PORT || 3001;
-const controllerExtension = process.env.CONTROLLER_EXTENSION || 'ts';
+const controllerExtension = process.env.CONTROLLER_EXTENSION || '.ts';
 const controllerPath = `${__dirname}/api/controllers/**/*Controller${controllerExtension}`;
 
 mongoose
