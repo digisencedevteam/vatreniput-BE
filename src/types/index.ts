@@ -4,3 +4,8 @@ export type UserType = {
   email: string;
   password: string;
 };
+export type AlbumType = {
+  _id: string;
+  code: string;
+  isUsed: boolean;
+};
