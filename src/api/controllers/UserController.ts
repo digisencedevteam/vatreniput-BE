@@ -50,7 +50,7 @@ export default class UserController {
     // Verify the password
     const isPasswordValid = await this.authService.verifyPassword(
       password,
-      user.password
+      user.password || ''
     );
     if (!isPasswordValid) {
       throw new Error('Invalid username or password');

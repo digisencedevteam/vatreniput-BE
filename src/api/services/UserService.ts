@@ -39,4 +39,19 @@ export class UserService {
     const user = await User.findOne({ email });
     return user;
   }
+
+  public async findOneWithoutPassword(
+    _id: string
+  ): Promise<UserType | null> {
+    const user = await User.findOne({ _id });
+    if (user) {
+      const {
+        _id: userId,
+        password: _,
+        ...userWithoutPassword
+      } = user.toObject();
+      return { _id: userId.toString(), ...userWithoutPassword };
+    }
+    return user;
+  }
 }

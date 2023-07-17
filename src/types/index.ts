@@ -2,7 +2,7 @@ export type UserType = {
   _id: string;
   username: string;
   email: string;
-  password: string;
+  password?: string;
 };
 export type AlbumType = {
   _id: string;

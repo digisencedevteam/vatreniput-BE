@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import express from 'express';
 import mongoose, { ConnectOptions } from 'mongoose';
 import { useExpressServer } from 'routing-controllers';
-import { getMetadataArgsStorage } from 'routing-controllers';
+import cors from 'cors';
 import 'dotenv/config';
 import { authorizationChecker } from './auth/authorizationChecker';
 import { currentUserChecker } from './auth/currentUserChecker';
@@ -25,6 +25,8 @@ mongoose
     console.error('Failed to connect to MongoDB:', error);
   });
 console.log('Loading controllers from path: ' + controllerPath);
+
+app.use(cors());
 
 useExpressServer(app, {
   controllers: [controllerPath],
