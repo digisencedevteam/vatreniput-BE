@@ -60,7 +60,9 @@ export default class UserController {
     const accessToken = await this.authService.generateAccessToken(
       user._id
     );
+    const returnedUser =
+      await this.userService.findOneWithoutPassword(user._id);
 
-    return { accessToken };
+    return { accessToken, user: returnedUser };
   }
 }

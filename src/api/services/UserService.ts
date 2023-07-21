@@ -33,9 +33,7 @@ export class UserService {
     return savedUser.toObject(); // Convert the savedUser to a plain JavaScript object
   }
 
-  public async getUserByEmail(
-    email: string
-  ): Promise<UserType | null> {
+  public async getUserByEmail(email: string): Promise<any> {
     const user = await User.findOne({ email });
     return user;
   }
