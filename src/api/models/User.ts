@@ -4,6 +4,9 @@ export interface User extends Document {
   email: string;
   password: string;
   username: string;
+  firstName: string;
+  lastName: string;
+  photoURL: string;
 }
 
 const userSchema = new Schema<User>({
@@ -20,6 +23,21 @@ const userSchema = new Schema<User>({
     type: String,
     required: true,
     unique: true,
+  },
+  firstName: {
+    type: String,
+    required: false,
+    unique: false,
+  },
+  lastName: {
+    type: String,
+    required: false,
+    unique: false,
+  },
+  photoURL: {
+    type: String,
+    required: false,
+    unique: false,
   },
 });
 

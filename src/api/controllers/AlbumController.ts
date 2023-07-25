@@ -37,13 +37,7 @@ export default class AlbumController {
   }
 
   @Get('/validate/:code')
-  @Authorized()
-  async validateAlbumByCode(
-    @Param('code') code: string,
-    @CurrentUser({ required: true }) user: UserType
-  ) {
-    // TODO - this is just example of how to check current user - remove this later
-    console.log(user, 'this is current user');
+  async validateAlbumByCode(@Param('code') code: string) {
     const isAlbumValid = await this.albumService.validateOneByCode(
       code
     );

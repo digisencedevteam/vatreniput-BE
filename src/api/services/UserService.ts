@@ -3,11 +3,15 @@ import User from '../models/User';
 import { UserType } from '../../types';
 
 export class UserService {
-  public async registerUser(
-    email: string,
-    password: string,
-    username: string
-  ) {
+  public async registerUser(data: UserType) {
+    const {
+      email,
+      password,
+      username,
+      firstName,
+      lastName,
+      photoURL,
+    } = data;
     // Check if the email or username already exists
     const existingUser = await User.findOne().or([
       { email },
@@ -18,13 +22,17 @@ export class UserService {
     }
 
     // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword =
+      password && (await bcrypt.hash(password, 10));
 
     // Create a new user
     const newUser = new User({
       email,
       password: hashedPassword,
       username,
+      firstName,
+      lastName,
+      photoURL,
     });
 
     // Save the user to the database

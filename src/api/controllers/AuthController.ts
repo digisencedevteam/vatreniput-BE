@@ -28,6 +28,8 @@ export default class AuthController {
     const userResponse =
       await this.userService.findOneWithoutPassword(user._id);
     console.log(userResponse, 'THIS IS USER RESPONSE');
-    return userResponse;
+    return {
+      user: userResponse,
+    };
   }
 }

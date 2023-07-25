@@ -1,4 +1,12 @@
-import { Body, JsonController, Post } from 'routing-controllers';
+import {
+  Body,
+  Get,
+  JsonController,
+  Post,
+  Authorized,
+  CurrentUser,
+} from 'routing-controllers';
+import { UserType } from '../../types/index';
 import { AuthService } from '../../auth/AuthService';
 import { UserService } from '../services/UserService';
 
@@ -14,18 +22,10 @@ export default class UserController {
   @Post('/register')
   async register(
     @Body()
-    requestBody: {
-      email: string;
-      password: string;
-      username: string;
-    }
+    requestBody: UserType
   ) {
-    const { email, password, username } = requestBody;
-
     const savedUser = await this.userService.registerUser(
-      email,
-      password,
-      username
+      requestBody
     );
 
     return savedUser;
@@ -64,5 +64,14 @@ export default class UserController {
       await this.userService.findOneWithoutPassword(user._id);
 
     return { accessToken, user: returnedUser };
+  }
+
+  @Get('/me')
+  @Authorized()
+  async getMyInfo(@CurrentUser({ required: true }) user: UserType) {
+    const me = this.userService.findOneWithoutPassword(user._id);
+    return {
+      user: me,
+    };
   }
 }
