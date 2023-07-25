@@ -19,7 +19,7 @@ export class AlbumService {
 
   public async validateOneByCode(code: string) {
     const album = await Album.findOne({ code });
-    if (!album) {
+    if (!album || album.isUsed) {
       return false;
     }
     return true;
