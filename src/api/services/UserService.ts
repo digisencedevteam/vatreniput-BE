@@ -1,17 +1,11 @@
 import bcrypt from 'bcrypt';
 import User from '../models/User';
 import { UserType } from '../../types';
+import Album from '../models/Album';
 
 export class UserService {
-  public async registerUser(data: UserType) {
-    const {
-      email,
-      password,
-      username,
-      firstName,
-      lastName,
-      photoURL,
-    } = data;
+  public async registerUser(data: UserType, code: string) {
+    const { email, password, username, firstName, lastName } = data;
     // Check if the email or username already exists
     const existingUser = await User.findOne().or([
       { email },
@@ -19,6 +13,11 @@ export class UserService {
     ]);
     if (existingUser) {
       throw new Error('Email or username already exists');
+    }
+    // check if album code is used
+    const album = await Album.findOne({ code });
+    if (!album || !!album.isUsed) {
+      throw new Error('Album for regiatration invalid');
     }
 
     // Hash the password
@@ -32,11 +31,13 @@ export class UserService {
       username,
       firstName,
       lastName,
-      photoURL,
     });
 
     // Save the user to the database
     const savedUser = await newUser.save();
+
+    // update album - make it used
+    await Album.findOneAndUpdate({ code }, { isUsed: true });
 
     return savedUser.toObject(); // Convert the savedUser to a plain JavaScript object
   }

@@ -5,6 +5,7 @@ import {
   Post,
   Authorized,
   CurrentUser,
+  Param,
 } from 'routing-controllers';
 import { UserType } from '../../types/index';
 import { AuthService } from '../../auth/AuthService';
@@ -19,13 +20,15 @@ export default class UserController {
     this.userService = new UserService();
     this.authService = new AuthService();
   }
-  @Post('/register')
+  @Post('/register/:code')
   async register(
+    @Param('code') code: string,
     @Body()
     requestBody: UserType
   ) {
     const savedUser = await this.userService.registerUser(
-      requestBody
+      requestBody,
+      code
     );
 
     return savedUser;
