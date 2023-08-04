@@ -6,10 +6,16 @@ import {
   Authorized,
   CurrentUser,
   Param,
+  Put,
+  BadRequestError,
+  Res,
+  Delete,
 } from 'routing-controllers';
 import { UserType } from '../../types/index';
 import { AuthService } from '../../auth/AuthService';
 import { UserService } from '../services/UserService';
+import { UserError } from '../errors/UserError';
+import Utils from '../../lib/utils';
 
 @JsonController('/user')
 export default class UserController {
@@ -72,9 +78,94 @@ export default class UserController {
   @Get('/me')
   @Authorized()
   async getMyInfo(@CurrentUser({ required: true }) user: UserType) {
-    const me = this.userService.findOneWithoutPassword(user._id);
+    const me = await this.userService.findOneWithoutPassword(
+      user._id
+    );
     return {
       user: me,
     };
+  }
+
+  @Put('/:userId')
+  @Authorized()
+  async updateUser(
+    @CurrentUser({ required: true }) user: UserType,
+    @Param('userId') userId: string,
+    @Body() body: Partial<UserType>
+  ) {
+    if (Object.keys(body).length === 0) {
+      return new BadRequestError('Missing body.');
+    }
+
+    const targerUser = await this.userService.findOneWithoutPassword(
+      userId
+    );
+    if (!targerUser) {
+      return new UserError(404, 'User not found');
+    }
+
+    if (targerUser?._id !== user._id.toString()) {
+      throw new UserError(
+        403,
+        'You dont have access to perform this action'
+      );
+    }
+    if (body.email) {
+      const emailResult = Utils.validEmail(body.email);
+      if (!emailResult) {
+        return new UserError(400, 'Email address is not vaild.');
+      }
+    }
+
+    if (body.username) {
+      const userNameResult = Utils.validUsername(body.username);
+      if (!userNameResult) {
+        return new UserError(
+          400,
+          'Username should only contain letters, numbers, and dots without spaces, only @-_+. special characters can be used.'
+        );
+      }
+    }
+
+    if (body.newPassword) {
+      if (body.newPassword.length < 5) {
+        return new UserError(
+          400,
+          'Password must be at least 8 characters and contain one upper case and one number, only !@#$%^&* special characters can be used.'
+        );
+      }
+    }
+
+    return await this.userService.updateUser(user._id, body);
+  }
+
+  @Authorized()
+  @Delete('/:userId')
+  public async deleteUserAccount(
+    @CurrentUser({ required: true }) user: any,
+    @Param('userId') userId: string,
+    @Res() response: any
+  ): Promise<void> {
+    const userToDelete =
+      await this.userService.findOneWithoutPassword(userId);
+
+    if (!userToDelete) {
+      throw new UserError(404, 'User not found');
+    }
+
+    const userAccess =
+      await this.userService.checkUserAccessForTargetUser(
+        user,
+        userToDelete
+      );
+
+    if (!userAccess) {
+      throw new UserError(
+        403,
+        'You dont have access to perform this action'
+      );
+    }
+    await this.userService.deleteUser(userId);
+    return response.status(200).send({});
   }
 }

@@ -61,4 +61,43 @@ export class UserService {
     }
     return user;
   }
+
+  public async updateUser(
+    userId: string,
+    updateData: Partial<UserType>
+  ): Promise<any> {
+    const user = await User.findOne({ _id: userId });
+
+    if (!user) {
+      return null;
+    }
+    try {
+      const user = await User.findByIdAndUpdate(userId, updateData, {
+        new: true,
+      });
+      return user?.toObject();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  public async deleteUser(userId: string) {
+    try {
+      const user = await User.findByIdAndDelete(userId);
+      return user;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  public async checkUserAccessForTargetUser(
+    user: any,
+    targetUser: any
+  ): Promise<boolean> {
+    if (user._id.toString() === targetUser._id.toString()) {
+      return true;
+    }
+
+    return false;
+  }
 }
