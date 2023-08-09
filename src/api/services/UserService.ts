@@ -36,8 +36,11 @@ export class UserService {
     // Save the user to the database
     const savedUser = await newUser.save();
 
-    // update album - make it used
-    await Album.findOneAndUpdate({ code }, { isUsed: true });
+    // Link user to album and mark album as used
+    await Album.findOneAndUpdate(
+      { code },
+      { isUsed: true, owner: savedUser._id }
+    );
 
     return savedUser.toObject(); // Convert the savedUser to a plain JavaScript object
   }

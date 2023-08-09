@@ -7,6 +7,7 @@ export interface User extends Document {
   firstName: string;
   lastName: string;
   photoURL: string;
+  album: typeof Schema.Types.ObjectId;
 }
 
 const userSchema = new Schema<User>({
@@ -39,6 +40,7 @@ const userSchema = new Schema<User>({
     required: false,
     unique: false,
   },
+  album: { type: Schema.Types.ObjectId, ref: 'Album' },
 });
 
 export default model<User>('User', userSchema);
