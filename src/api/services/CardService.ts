@@ -69,4 +69,70 @@ export class CardService {
     album.cards.push(card._id);
     await album.save();
   }
+
+  public async getAllCardsFromAlbum(
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const skip = (page - 1) * limit;
+
+    // Fetch user's album
+    const album = await Album.findOne({ owner: userId });
+    if (!album) {
+      throw new Error('Album not found!');
+    }
+
+    // Fetch paginated cards
+    const cards = await Card.find({ _id: { $in: album.cards } })
+      .skip(skip)
+      .limit(limit);
+    const totalCount = await Card.countDocuments({
+      _id: { $in: album.cards },
+    });
+
+    return {
+      cards,
+      totalCount,
+    };
+  }
+
+  public async getCardsForEvent(
+    eventId: string,
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const skip = (page - 1) * limit;
+
+    // Fetch user's album
+    const album = await Album.findOne({ owner: userId });
+    if (!album) {
+      throw new Error('Album not found!');
+    }
+
+    // Fetch cards associated with the event with pagination
+    const cards = await Card.find({ event: eventId })
+      .skip(skip)
+      .limit(limit);
+
+    const totalCount = await Card.countDocuments({ event: eventId });
+
+    if (!cards.length) {
+      throw new Error('No cards found for the given event!');
+    }
+
+    // Map over the cards to add the isCollected flag
+    const cardsWithFlag = cards.map((card) => {
+      const cardObj = card.toObject();
+      // @ts-ignore
+      cardObj.isCollected = album.cards.includes(card._id);
+      return cardObj;
+    });
+
+    return {
+      cards: cardsWithFlag,
+      totalCount,
+    };
+  }
 }
