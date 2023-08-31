@@ -46,21 +46,20 @@ export default class CardController {
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 10
   ) {
-    console.log(user, 'THIS IS USER');
     // Ensure `page` and `limit` are valid numbers and fall within reasonable bounds
-    if (isNaN(page) || page < 1) {
+    if (page < 1) {
       throw new BadRequestError('Invalid page value.');
     }
 
     // Limit the maximum number of cards fetched in a single request to 100 (or your preferred max)
-    if (isNaN(limit) || limit < 1 || limit > 100) {
+    if (limit < 1 || limit > 100) {
       throw new BadRequestError('Invalid limit value.');
     }
     const { cards, totalCount } =
       await this.cardService.getAllCardsFromAlbum(
         user._id,
-        page,
-        limit
+        Number(page),
+        Number(limit)
       );
     return {
       cards,
@@ -92,11 +91,11 @@ export default class CardController {
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 10
   ) {
-    if (isNaN(page) || page < 1) {
+    if (page < 1) {
       throw new BadRequestError('Invalid page value.');
     }
 
-    if (isNaN(limit) || limit < 1 || limit > 100) {
+    if (limit < 1 || limit > 100) {
       throw new BadRequestError('Invalid limit value.');
     }
 
@@ -104,8 +103,8 @@ export default class CardController {
       await this.cardService.getCardsForEvent(
         eventId,
         user.id,
-        page,
-        limit
+        Number(page),
+        Number(limit)
       );
     return {
       cards,

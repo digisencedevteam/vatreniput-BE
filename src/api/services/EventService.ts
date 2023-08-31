@@ -11,6 +11,7 @@ export class EventService {
         year: 1,
         description: 1,
       })
+      .sort({ year: 1 })
       .exec();
     return events.map((event) => ({
       ...event,
