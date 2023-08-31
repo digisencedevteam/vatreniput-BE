@@ -2,6 +2,19 @@ import Event from '../models/Event';
 
 export class EventService {
   public async getAllEvents() {
-    return await Event.find();
+    const events = await Event.find()
+      .lean()
+      .select({
+        _id: 1,
+        name: 1,
+        location: 1,
+        year: 1,
+        description: 1,
+      })
+      .exec();
+    return events.map((event) => ({
+      ...event,
+      _id: event._id.toString(),
+    }));
   }
 }

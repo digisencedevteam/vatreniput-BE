@@ -13,9 +13,6 @@ export default class EventController {
   @Get('/all')
   @Authorized()
   async getAllEvents() {
-    const events = await this.eventService.getAllEvents();
-    return {
-      events,
-    };
+    return await this.eventService.getAllEvents();
   }
 }

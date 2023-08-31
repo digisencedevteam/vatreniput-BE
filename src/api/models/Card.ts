@@ -14,7 +14,7 @@ const cardSchema = new Schema<Card>({
   code: { type: String, required: true, unique: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
-  videoLink: { type: String, required: true },
+  videoLink: { type: String, required: false },
   imageURLs: [{ type: String }],
   isScanned: { type: Boolean, default: false },
   event: { type: Schema.Types.ObjectId, ref: 'Event' },

@@ -85,6 +85,7 @@ export class CardService {
 
     // Fetch paginated cards
     const cards = await Card.find({ _id: { $in: album.cards } })
+      .populate('event')
       .skip(skip)
       .limit(limit);
     const totalCount = await Card.countDocuments({
@@ -92,7 +93,10 @@ export class CardService {
     });
 
     return {
-      cards,
+      cards: cards.map((card) => ({
+        ...card.toObject(),
+        _id: card._id.toString(),
+      })),
       totalCount,
     };
   }
@@ -113,6 +117,7 @@ export class CardService {
 
     // Fetch cards associated with the event with pagination
     const cards = await Card.find({ event: eventId })
+      .populate('event')
       .skip(skip)
       .limit(limit);
 
@@ -125,6 +130,7 @@ export class CardService {
     // Map over the cards to add the isCollected flag
     const cardsWithFlag = cards.map((card) => {
       const cardObj = card.toObject();
+      cardObj._id = card._id.toString();
       // @ts-ignore
       cardObj.isCollected = album.cards.includes(card._id);
       return cardObj;
