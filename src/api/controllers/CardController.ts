@@ -111,4 +111,10 @@ export default class CardController {
       totalCount,
     };
   }
+
+  @Get('/stats/all')
+  @Authorized()
+  async getCardStats(@CurrentUser() user: any) {
+    return await this.cardService.getCardStats(user.id);
+  }
 }

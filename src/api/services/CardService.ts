@@ -141,4 +141,25 @@ export class CardService {
       totalCount,
     };
   }
+
+  public async getCardStats(userId: string) {
+    // Count of all cards
+    const countOfAllCards = await Card.countDocuments();
+
+    // Count of collected cards by user
+    const album = await Album.findOne({ owner: userId });
+    const numberOfCollectedCards = album ? album.cards.length : 0;
+
+    // Calculate the percentage of collected cards
+    const percentageOfCollectedCards =
+      countOfAllCards === 0
+        ? 0
+        : (numberOfCollectedCards / countOfAllCards) * 100;
+
+    return {
+      numberOfCollectedCards,
+      percentageOfCollectedCards,
+      countOfAllCards,
+    };
+  }
 }
