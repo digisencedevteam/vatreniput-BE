@@ -16,7 +16,7 @@ export class UserService {
     }
     // check if album code is used
     const album = await Album.findOne({ code });
-    if (!album || !!album.isUsed) {
+    if (!album || album.owner) {
       throw new Error('Album for regiatration invalid');
     }
 
@@ -37,10 +37,7 @@ export class UserService {
     const savedUser = await newUser.save();
 
     // Link user to album and mark album as used
-    await Album.findOneAndUpdate(
-      { code },
-      { isUsed: true, owner: savedUser._id }
-    );
+    await Album.findOneAndUpdate({ code }, { owner: savedUser._id });
 
     return savedUser.toObject(); // Convert the savedUser to a plain JavaScript object
   }

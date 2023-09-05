@@ -19,8 +19,7 @@ export class AlbumService {
 
   public async validateOneByCode(code: string) {
     const album = await Album.findOne({ code });
-    console.log(album, 'ALBUM', code);
-    if (!album || album.isUsed) {
+    if (!album || album.owner) {
       return false;
     }
     return true;

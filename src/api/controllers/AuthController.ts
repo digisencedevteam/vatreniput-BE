@@ -2,11 +2,7 @@ import { UserService } from '../services/UserService';
 import {
   Get,
   JsonController,
-  Param,
-  Put,
   Authorized,
-  Post,
-  Body,
   CurrentUser,
 } from 'routing-controllers';
 import { UserType } from '../../types/index';
@@ -24,7 +20,6 @@ export default class AuthController {
   async getUser(@CurrentUser({ required: true }) user: UserType) {
     const userResponse =
       await this.userService.findOneWithoutPassword(user._id);
-    console.log(userResponse, 'THIS IS USER RESPONSE');
     return {
       user: userResponse,
     };

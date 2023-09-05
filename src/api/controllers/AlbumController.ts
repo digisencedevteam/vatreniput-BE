@@ -6,9 +6,7 @@ import {
   Authorized,
   Post,
   Body,
-  CurrentUser,
 } from 'routing-controllers';
-import { UserType } from '../../types/index';
 import { AlbumService } from '../services/AlbumService';
 
 @JsonController('/album')

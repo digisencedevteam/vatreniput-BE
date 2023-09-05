@@ -1,72 +1,72 @@
 import { BadRequestError } from 'routing-controllers';
-import Card from '../models/Card';
 import Album from '../models/Album';
 import { Types } from 'mongoose';
+import CardTemplate from '../models/CardTemplate';
+import PrintedCard from '../models/PrintedCard';
+import UserCard from '../models/UserCard';
 
 export class CardService {
   public async getCardWithEventDetails(cardId: string) {
-    const card = await Card.findById(cardId).populate('event');
+    const card = await CardTemplate.findById(cardId).populate(
+      'event'
+    );
     if (!card) {
       throw new BadRequestError('Card not found!');
     }
     return card.toObject();
   }
   public async createCard(
-    cardData: Partial<typeof Card>
-  ): Promise<typeof Card> {
-    const card = new Card(cardData);
+    cardData: Partial<typeof CardTemplate>
+  ): Promise<typeof CardTemplate> {
+    const card = new CardTemplate(cardData);
     await card.save();
     return card.toObject();
   }
-  public async markCardAsUsed(
-    cardId: string
-  ): Promise<typeof Card | null> {
-    return await Card.findByIdAndUpdate(
-      cardId,
-      { isUsed: true },
-      { new: true }
-    );
-  }
+
   public async findOneById(id: string) {
-    const card = await Card.findOne({ _id: id });
+    const card = await CardTemplate.findOne({ _id: id });
     return card?.toObject();
   }
 
-  public async validateCard(cardId: string): Promise<boolean> {
-    const card = await Card.findById(cardId);
-    if (!card) {
+  public async validateCard(printedCardId: string): Promise<boolean> {
+    const printedCard = await PrintedCard.findById(printedCardId);
+    if (!printedCard) {
       throw new Error('Card not found!');
     }
-    return !card.toObject().isScanned;
+    return !printedCard.isScanned;
   }
 
-  public async addCardToAlbum(userId: string, cardId: string) {
-    // Find the card with the scannedCode and where isScanned is false
-    const card = await Card.findOne({
-      _id: cardId,
+  public async addCardToAlbum(userId: string, printedCardId: string) {
+    // Find the printed card that's not yet scanned
+    const printedCard = await PrintedCard.findOne({
+      _id: printedCardId,
       isScanned: false,
     });
 
-    if (!card) {
+    if (!printedCard) {
       throw new BadRequestError('Card not found or already scanned!');
     }
 
-    // Mark card as scanned
-    card.isScanned = true;
-    await card.save();
+    // Mark the printed card as scanned
+    printedCard.isScanned = true;
+    await printedCard.save();
 
-    // Add card to user's album
-    let album = await Album.findOne({ owner: userId });
+    // Add printed card to the UserCard
+    const userCard = new UserCard({
+      userId: new Types.ObjectId(userId),
+      printedCardId: printedCard._id,
+    });
+
+    await userCard.save();
+
+    // Add UserCard to user's album
+    let album = await Album.findOne({ userId: userId });
 
     if (!album) {
       throw new BadRequestError('User album not found!');
     }
 
-    if (album.cards.map((id) => id.toString()).includes(cardId)) {
-      throw new Error('Card already added to the album!');
-    }
-
-    album.cards.push(card._id);
+    album.cards.push(userCard._id);
     await album.save();
   }
 
@@ -78,25 +78,29 @@ export class CardService {
     const skip = (page - 1) * limit;
 
     // Fetch user's album
-    const album = await Album.findOne({ owner: userId });
-    if (!album) {
-      throw new Error('Album not found!');
-    }
+    const album = await Album.findOne({ userId: userId }).populate(
+      'userCards'
+    );
+
+    const userCards = album?.cards || [];
+    const printedCardIds = userCards.map(
+      (uc: any) => uc.printedCardId
+    );
 
     // Fetch paginated cards
-    const cards = await Card.find({ _id: { $in: album.cards } })
+    const cards = await CardTemplate.find({
+      _id: { $in: printedCardIds },
+    })
       .populate('event')
       .skip(skip)
       .limit(limit);
-    const totalCount = await Card.countDocuments({
-      _id: { $in: album.cards },
+
+    const totalCount = await CardTemplate.countDocuments({
+      _id: { $in: printedCardIds },
     });
 
     return {
-      cards: cards.map((card) => ({
-        ...card.toObject(),
-        _id: card._id.toString(),
-      })),
+      cards: cards.map((card) => card.toObject()),
       totalCount,
     };
   }
@@ -110,29 +114,39 @@ export class CardService {
     const skip = (page - 1) * limit;
 
     // Fetch user's album
-    const album = await Album.findOne({ owner: userId });
+    const album = await Album.findOne({
+      owner: new Types.ObjectId(userId),
+    });
     if (!album) {
       throw new Error('Album not found!');
     }
 
-    // Fetch cards associated with the event with pagination
-    const cards = await Card.find({ event: eventId })
+    // Fetch CardTemplates associated with the event with pagination
+    const cards = await CardTemplate.find({ event: eventId })
       .populate('event')
       .skip(skip)
       .limit(limit);
 
-    const totalCount = await Card.countDocuments({ event: eventId });
+    const totalCount = await CardTemplate.countDocuments({
+      event: eventId,
+    });
 
     if (!cards.length) {
       throw new Error('No cards found for the given event!');
     }
+
+    // To determine which cards a user has collected, we'll fetch the user's UserCards
+    const userCards = await UserCard.find({ user: userId });
+    const userPrintedCardIds = userCards.map((uc) =>
+      uc.printedCard.toString()
+    );
 
     // Map over the cards to add the isCollected flag
     const cardsWithFlag = cards.map((card) => {
       const cardObj = card.toObject();
       cardObj._id = card._id.toString();
       // @ts-ignore
-      cardObj.isCollected = album.cards.includes(card._id);
+      cardObj.isCollected = userPrintedCardIds.includes(card._id);
       return cardObj;
     });
 
@@ -143,11 +157,13 @@ export class CardService {
   }
 
   public async getCardStats(userId: string) {
-    // Count of all cards
-    const countOfAllCards = await Card.countDocuments();
+    // Count of all CardTemplates
+    const countOfAllCards = await CardTemplate.countDocuments();
 
     // Count of collected cards by user
-    const album = await Album.findOne({ owner: userId });
+    const album = await Album.findOne({
+      owner: new Types.ObjectId(userId),
+    });
     const numberOfCollectedCards = album ? album.cards.length : 0;
 
     // Calculate the percentage of collected cards
