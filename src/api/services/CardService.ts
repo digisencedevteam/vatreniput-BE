@@ -42,7 +42,7 @@ export class CardService {
       _id: printedCardId,
       isScanned: false,
     });
-
+    console.log(printedCard)
     if (!printedCard) {
       throw new BadRequestError('Card not found or already scanned!');
     }
@@ -60,7 +60,7 @@ export class CardService {
     await userCard.save();
 
     // Add UserCard to user's album
-    let album = await Album.findOne({ userId: userId });
+    let album = await Album.findOne({ owner: userId });
 
     if (!album) {
       throw new BadRequestError('User album not found!');
@@ -78,13 +78,13 @@ export class CardService {
     const skip = (page - 1) * limit;
 
     // Fetch user's album
-    const album = await Album.findOne({ userId: userId }).populate(
-      'userCards'
+    const album = await Album.findOne({ owner: userId }).populate(
+      'cards'
     );
-
+    console.log(album)
     const userCards = album?.cards || [];
     const printedCardIds = userCards.map(
-      (uc: any) => uc.printedCardId
+      (uc: any) => uc.printedCardId.toString()
     );
 
     // Fetch paginated cards
@@ -138,7 +138,7 @@ export class CardService {
     // To determine which cards a user has collected, we'll fetch the user's UserCards
     const userCards = await UserCard.find({ user: userId });
     const userPrintedCardIds = userCards.map((uc) =>
-      uc.printedCard.toString()
+      uc.printedCardId.toString()
     );
 
     // Map over the cards to add the isCollected flag
