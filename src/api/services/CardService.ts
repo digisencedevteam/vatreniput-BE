@@ -1,9 +1,11 @@
 import { BadRequestError } from 'routing-controllers';
 import Album from '../models/Album';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import CardTemplate from '../models/CardTemplate';
 import PrintedCard from '../models/PrintedCard';
 import UserCard from '../models/UserCard';
+import { ObjectId } from 'mongodb';
+
 
 export class CardService {
   public async getCardWithEventDetails(cardId: string) {
@@ -37,37 +39,44 @@ export class CardService {
   }
 
   public async addCardToAlbum(userId: string, printedCardId: string) {
-    // Find the printed card that's not yet scanned
-    const printedCard = await PrintedCard.findOne({
-      _id: printedCardId,
-      isScanned: false,
-    });
-    console.log(printedCard)
-    if (!printedCard) {
-      throw new BadRequestError('Card not found or already scanned!');
+    try {
+      // Find the printed card that's not yet scanned
+      const printedCard = await PrintedCard.findOneAndUpdate(
+        {
+          _id: printedCardId,
+          isScanned: false,
+        },
+        { isScanned: true, owner: new Types.ObjectId(userId) },
+        { new: true }
+      );
+  
+      if (!printedCard) {
+        throw new BadRequestError('Card not found or already scanned!');
+      }
+  
+      // Create a new UserCard
+      const userCard = new UserCard({
+        userId: new Types.ObjectId(userId),
+        printedCardId: printedCard._id,
+      });
+  
+      await userCard.save();
+  
+      // Find or create the user's album
+      let album = await Album.findOne({ owner: userId });
+  
+      if (!album) {
+        album = new Album({ owner: userId, cards: [] });
+      }
+  
+      album.cards.push(userCard._id);
+      await album.save();
+  
+      return { success: true, message: 'Card added to album successfully.' };
+    } catch (error) {
+      // Handle errors here
+      throw error;
     }
-
-    // Mark the printed card as scanned
-    printedCard.isScanned = true;
-    await printedCard.save();
-
-    // Add printed card to the UserCard
-    const userCard = new UserCard({
-      userId: new Types.ObjectId(userId),
-      printedCardId: printedCard._id,
-    });
-
-    await userCard.save();
-
-    // Add UserCard to user's album
-    let album = await Album.findOne({ owner: userId });
-
-    if (!album) {
-      throw new BadRequestError('User album not found!');
-    }
-
-    album.cards.push(userCard._id);
-    await album.save();
   }
 
   public async getAllCardsFromAlbum(
@@ -81,22 +90,27 @@ export class CardService {
     const album = await Album.findOne({ owner: userId }).populate(
       'cards'
     );
-    console.log(album)
+    // console.log(album);
     const userCards = album?.cards || [];
     const printedCardIds = userCards.map(
-      (uc: any) => uc.printedCardId.toString()
+      (uc: any) => uc.printedCardId
     );
+    const printetCardsNew = await PrintedCard.find({
+      _id: { $in: printedCardIds },
+    })
+    console.log(printetCardsNew, 'PRINTANE');
+    const newIds = printetCardsNew.map((uc: any) => uc.cardTemplate);
 
     // Fetch paginated cards
     const cards = await CardTemplate.find({
-      _id: { $in: printedCardIds },
+      _id: { $in: newIds },
     })
       .populate('event')
       .skip(skip)
       .limit(limit);
 
     const totalCount = await CardTemplate.countDocuments({
-      _id: { $in: printedCardIds },
+      _id: { $in: newIds },
     });
 
     return {
@@ -114,9 +128,7 @@ export class CardService {
     const skip = (page - 1) * limit;
 
     // Fetch user's album
-    const album = await Album.findOne({
-      owner: new Types.ObjectId(userId),
-    });
+    const album = await Album.findOne({ owner: userId });
     if (!album) {
       throw new Error('Album not found!');
     }
@@ -135,20 +147,26 @@ export class CardService {
       throw new Error('No cards found for the given event!');
     }
 
-    // To determine which cards a user has collected, we'll fetch the user's UserCards
-    const userCards = await UserCard.find({ user: userId });
-    const userPrintedCardIds = userCards.map((uc) =>
-      uc.printedCardId.toString()
-    );
-
     // Map over the cards to add the isCollected flag
-    const cardsWithFlag = cards.map((card) => {
+    const cardsWithFlag = await Promise.all(cards.map(async (card) => {
       const cardObj = card.toObject();
       cardObj._id = card._id.toString();
-      // @ts-ignore
-      cardObj.isCollected = userPrintedCardIds.includes(card._id);
+
+      // check if there is a matching printed card for the card template
+      const printedCard = await PrintedCard.findOne({
+        cardTemplate: card._id,
+        isScanned: true
+      });
+
+      // check if the user has collected the printed card
+      const userCard = printedCard
+        ? await UserCard.findOne({ printedCardId: printedCard._id, userId })
+        : null;
+
+      //@ts-ignore
+      cardObj.isCollected = !!userCard;
       return cardObj;
-    });
+    }));
 
     return {
       cards: cardsWithFlag,
@@ -171,7 +189,6 @@ export class CardService {
       countOfAllCards === 0
         ? 0
         : (numberOfCollectedCards / countOfAllCards) * 100;
-
     return {
       numberOfCollectedCards,
       percentageOfCollectedCards,
