@@ -191,7 +191,7 @@ export class CardService {
         : (numberOfCollectedCards / countOfAllCards) * 100;
     return {
       numberOfCollectedCards,
-      percentageOfCollectedCards,
+      percentageOfCollectedCards: Math.round(percentageOfCollectedCards),
       countOfAllCards,
     };
   }
