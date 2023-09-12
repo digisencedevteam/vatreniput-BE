@@ -65,6 +65,13 @@ export default class CardController {
     };
   }
 
+  @Get('/details/:printedCardId')
+  async getCardDetails(
+    @Param('printedCardId') printedCardId: string
+  ) {
+    return this.cardService.getCardDetails(printedCardId);
+  }
+
   @Get('/:code')
   @Authorized()
   async getCardByCode(@Param('code') code: string) {

@@ -6,7 +6,6 @@ import PrintedCard from '../models/PrintedCard';
 import UserCard from '../models/UserCard';
 import { ObjectId } from 'mongodb';
 
-
 export class CardService {
   public async getCardWithEventDetails(cardId: string) {
     const card = await CardTemplate.findById(cardId).populate(
@@ -23,6 +22,28 @@ export class CardService {
     const card = new CardTemplate(cardData);
     await card.save();
     return card.toObject();
+  }
+
+  public async getCardDetails(printedCardId: string) {
+    try {
+      const card = await PrintedCard.findOne({
+        _id: printedCardId,
+        isScanned: false,
+      });
+
+      if (!card) {
+        throw new BadRequestError(
+          'Card not found or already scanned.'
+        );
+      }
+      const cardTemplate = await CardTemplate.findOne({
+        _id: card.cardTemplate,
+      }).populate('event');
+
+      return cardTemplate?.toObject();
+    } catch (error) {
+      throw new BadRequestError('Internal server error.');
+    }
   }
 
   public async findOneById(id: string) {
@@ -49,30 +70,35 @@ export class CardService {
         { isScanned: true, owner: new Types.ObjectId(userId) },
         { new: true }
       );
-  
+
       if (!printedCard) {
-        throw new BadRequestError('Card not found or already scanned!');
+        throw new BadRequestError(
+          'Card not found or already scanned!'
+        );
       }
-  
+
       // Create a new UserCard
       const userCard = new UserCard({
         userId: new Types.ObjectId(userId),
         printedCardId: printedCard._id,
       });
-  
+
       await userCard.save();
-  
+
       // Find or create the user's album
       let album = await Album.findOne({ owner: userId });
-  
+
       if (!album) {
         album = new Album({ owner: userId, cards: [] });
       }
-  
+
       album.cards.push(userCard._id);
       await album.save();
-  
-      return { success: true, message: 'Card added to album successfully.' };
+
+      return {
+        success: true,
+        message: 'Card added to album successfully.',
+      };
     } catch (error) {
       // Handle errors here
       throw error;
@@ -97,7 +123,7 @@ export class CardService {
     );
     const printetCardsNew = await PrintedCard.find({
       _id: { $in: printedCardIds },
-    })
+    });
     console.log(printetCardsNew, 'PRINTANE');
     const newIds = printetCardsNew.map((uc: any) => uc.cardTemplate);
 
@@ -148,25 +174,30 @@ export class CardService {
     }
 
     // Map over the cards to add the isCollected flag
-    const cardsWithFlag = await Promise.all(cards.map(async (card) => {
-      const cardObj = card.toObject();
-      cardObj._id = card._id.toString();
+    const cardsWithFlag = await Promise.all(
+      cards.map(async (card) => {
+        const cardObj = card.toObject();
+        cardObj._id = card._id.toString();
 
-      // check if there is a matching printed card for the card template
-      const printedCard = await PrintedCard.findOne({
-        cardTemplate: card._id,
-        isScanned: true
-      });
+        // check if there is a matching printed card for the card template
+        const printedCard = await PrintedCard.findOne({
+          cardTemplate: card._id,
+          isScanned: true,
+        });
 
-      // check if the user has collected the printed card
-      const userCard = printedCard
-        ? await UserCard.findOne({ printedCardId: printedCard._id, userId })
-        : null;
+        // check if the user has collected the printed card
+        const userCard = printedCard
+          ? await UserCard.findOne({
+              printedCardId: printedCard._id,
+              userId,
+            })
+          : null;
 
-      //@ts-ignore
-      cardObj.isCollected = !!userCard;
-      return cardObj;
-    }));
+        //@ts-ignore
+        cardObj.isCollected = !!userCard;
+        return cardObj;
+      })
+    );
 
     return {
       cards: cardsWithFlag,
@@ -191,7 +222,9 @@ export class CardService {
         : (numberOfCollectedCards / countOfAllCards) * 100;
     return {
       numberOfCollectedCards,
-      percentageOfCollectedCards: Math.round(percentageOfCollectedCards),
+      percentageOfCollectedCards: Math.round(
+        percentageOfCollectedCards
+      ),
       countOfAllCards,
     };
   }
