@@ -17,6 +17,11 @@ const UserCardSchema: Schema = new Schema({
     ref: 'PrintedCard',
     required: true,
   },
+  cardTemplateId: {
+    type: Schema.Types.ObjectId,
+    ref: 'CardTemplate',
+    required: true,
+  },
   addedAt: {
     type: Date,
     default: Date.now,

@@ -26,15 +26,13 @@ export default class CardController {
   @Authorized()
   async addCardToAlbum(
     @CurrentUser({ required: true }) user: UserType,
-    @Body() body: { cardId: string },
-    @Res() response: express.Response
+    @Body() body: { cardId: string }
   ) {
     const { cardId } = body;
     if (!cardId) {
       throw new BadRequestError('Card ID is required param.');
     }
-    await this.cardService.addCardToAlbum(user._id, cardId);
-    response.sendStatus(204);
+    return await this.cardService.addCardToAlbum(user._id, cardId);
   }
 
   @Get('/collected')

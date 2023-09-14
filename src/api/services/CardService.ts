@@ -59,28 +59,42 @@ export class CardService {
     return !printedCard.isScanned;
   }
 
-  public async addCardToAlbum(userId: string, printedCardId: string) {
+  public async addCardToAlbum(
+    userId: string,
+    printedCardId: string
+  ): Promise<string> {
     try {
       // Find the printed card that's not yet scanned
-      const printedCard = await PrintedCard.findOneAndUpdate(
-        {
-          _id: printedCardId,
-          isScanned: false,
-        },
-        { isScanned: true, owner: new Types.ObjectId(userId) },
-        { new: true }
-      );
+      const printedCard = await PrintedCard.findOne({
+        _id: printedCardId,
+        isScanned: false,
+      });
 
       if (!printedCard) {
-        throw new BadRequestError(
-          'Card not found or already scanned!'
-        );
+        return 'QR kod sa sličice je već skeniran i iskorišten!';
       }
+      // Check if the card with the same cardTemplateId is already in the user's album
+      const userCardExists = await UserCard.findOne({
+        userId: new Types.ObjectId(userId),
+        cardTemplateId: printedCard.cardTemplate, // Assuming cardTemplate is stored in printedCard
+      });
+
+      if (userCardExists) {
+        // throw new BadRequestError('Card is already in the album.');
+        return 'Sličica je već dodana u digitalni Almanah.';
+      }
+
+      // Mark the printed card as scanned and assign an owner
+      printedCard.isScanned = true;
+      // @ts-ignore
+      printedCard.owner = new Types.ObjectId(userId);
+      await printedCard.save();
 
       // Create a new UserCard
       const userCard = new UserCard({
         userId: new Types.ObjectId(userId),
         printedCardId: printedCard._id,
+        cardTemplateId: printedCard.cardTemplate,
       });
 
       await userCard.save();
@@ -95,10 +109,7 @@ export class CardService {
       album.cards.push(userCard._id);
       await album.save();
 
-      return {
-        success: true,
-        message: 'Card added to album successfully.',
-      };
+      return 'ok';
     } catch (error) {
       // Handle errors here
       throw error;
@@ -116,7 +127,6 @@ export class CardService {
     const album = await Album.findOne({ owner: userId }).populate(
       'cards'
     );
-    // console.log(album);
     const userCards = album?.cards || [];
     const printedCardIds = userCards.map(
       (uc: any) => uc.printedCardId
@@ -124,7 +134,6 @@ export class CardService {
     const printetCardsNew = await PrintedCard.find({
       _id: { $in: printedCardIds },
     });
-    console.log(printetCardsNew, 'PRINTANE');
     const newIds = printetCardsNew.map((uc: any) => uc.cardTemplate);
 
     // Fetch paginated cards
@@ -132,6 +141,7 @@ export class CardService {
       _id: { $in: newIds },
     })
       .populate('event')
+      //.sort({ addedAt: -1 })
       .skip(skip)
       .limit(limit);
 

@@ -940,83 +940,91 @@ const seedUserCards = async () => {
     {
       userId: user!._id,
       printedCardId: printedCardqrCode6!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode6!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode10!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode10!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode12!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode12!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode16!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode16!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode20!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode20!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode27!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode27!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode31!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode31!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode35!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode35!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode43!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode43!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode45!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode45!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode49!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode49!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode53!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode53!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode57!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode57!.cardTemplate,
       addedAt: new Date(),
     },
     {
       userId: user!._id,
       printedCardId: printedCardqrCode61!._id, // Reference to a printed card
+      cardTemplateId: printedCardqrCode61!.cardTemplate,
       addedAt: new Date(),
     },
     // ... other user cards
   ];
 
   const userCards = await UserCard.insertMany(userCardData);
-  console.log('User cards seeded successfully!');
-
-  console.log(
-    'carddd ' + userCards.map((userCard: any) => userCard._id)
-  );
-
   // Get the user's album and add the user cards to it
   const album = await Album.findOne({ owner: user!._id });
 
