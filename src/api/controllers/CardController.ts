@@ -12,14 +12,16 @@ import {
 } from 'routing-controllers';
 import { UserType } from '../../types/index';
 import { CardService } from '../services/CardService';
-import * as express from 'express';
+import { EventService } from '../services/EventService';
 
 @JsonController('/card')
 export default class CardController {
   private cardService: CardService;
+  private eventService: EventService;
 
   constructor() {
     this.cardService = new CardService();
+    this.eventService = new EventService();
   }
 
   @Patch('/add')
@@ -119,5 +121,19 @@ export default class CardController {
   @Authorized()
   async getCardStats(@CurrentUser() user: any) {
     return await this.cardService.getCardStats(user.id);
+  }
+
+  @Get('/stats/dashboard')
+  @Authorized()
+  async getCardStatsForDashboard(@CurrentUser() user: any) {
+    const cardStats = await this.cardService.getCardStats(user.id);
+    const topEvents = await this.eventService.getTopEvents(
+      user._id,
+      2
+    );
+    return {
+      ...cardStats,
+      topEvents,
+    };
   }
 }
