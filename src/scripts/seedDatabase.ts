@@ -14,6 +14,9 @@ import UserCard from '../api/models/UserCard.ts';
 import bcrypt from 'bcrypt';
 
 import mongoose, { Types } from 'mongoose';
+import Quiz from '../api/models/Quiz';
+import Question from '../api/models/Question';
+import QuizResult from '../api/models/QuizResult';
 
 dotenv.config();
 
@@ -54,6 +57,93 @@ const seedAlbums = async () => {
 
   await Album.insertMany(albumData);
   console.log('Albums seeded successfully!');
+};
+
+const seedQuizzes = async () => {
+  const user = await User.findOne({ username: 'testerantonio' });
+  const questionData = [
+    {
+      text: 'Koji hrvatski nogometaš je poznat kao "Vatreni Maestro"?',
+      image: '',
+      options: [
+        'Ivan Rakitić',
+        'Luka Modrić',
+        'Mario Mandžukić',
+        'Ivan Perišić',
+      ],
+      correctOption: 1, // 1 = Luka Modrić
+    },
+    {
+      text: 'Tko je postigao odlučujući gol za Hrvatsku u polufinalu Svjetskog prvenstva 2018. protiv Engleske?',
+      image: '',
+      options: [
+        'Andrej Kramarić',
+        'Ante Rebić',
+        'Domagoj Vida',
+        'Mario Mandžukić',
+      ],
+      correctOption: 3, // 3 = 'Mario Mandžukić'
+    },
+    {
+      text: 'Koji hrvatski nogometaš je poznat po svom nadimku "El Toro"?',
+      options: [
+        'Bruno Petković',
+        'Nikola Vlašić',
+        'Marcelo Brozović',
+        'Borna Barišić',
+      ],
+      correctOption: 0, // 0 = 'Bruno Petković'
+    },
+    {
+      text: 'Za koji klub nije igrao Darijo Srna?',
+      options: [
+        'Shakhtar Donetsk',
+        'Dinamo Zagreb',
+        'Hajduk Split',
+        'Cagliari',
+      ],
+      correctOption: 1, // 1= 'Dinamo Zagreb'
+    },
+  ];
+  await Question.insertMany(questionData);
+  const questions = await Question.find();
+  const questionIds = questions.map((question) => question._id);
+  console.log(questions, 'FOUND QUESTIONS');
+
+  const quizData = [
+    {
+      title: 'Kviz o Hrvatskim Nogometašima',
+      description:
+        'Testirajte svoje znanje o poznatim hrvatskim nogometašima. Otkrijte koliko dobro poznajete naše sportske junake.',
+      questions: questionIds,
+      thumbnail:
+        'https://res.cloudinary.com/dzg5kxbau/image/upload/v1693923677/HRV52006_copy_p8edoc.jpg',
+    },
+    {
+      title: 'Kviz o Hrvatskim Nogometašima RIJEŠENI',
+      description:
+        'Testirajte svoje znanje o poznatim hrvatskim nogometašima. Otkrijte koliko dobro poznajete naše sportske junake.',
+      questions: questionIds,
+      thumbnail:
+        'https://res.cloudinary.com/dzg5kxbau/image/upload/v1693923677/HRV52006_copy_p8edoc.jpg',
+    },
+  ];
+  await Quiz.insertMany(quizData);
+  const quizz1 = await Quiz.findOne({
+    title: 'Kviz o Hrvatskim Nogometašima RIJEŠENI',
+  });
+
+  const quizResultsData = [
+    {
+      userId: user!._id,
+      quizId: quizz1!._id,
+      score: 60,
+      dateTaken: new Date(),
+      duration: 30,
+    },
+  ];
+  await QuizResult.insertMany(quizResultsData);
+  console.log('Quiz data seeded successfully!', quizData);
 };
 
 const seedEvents = async () => {
@@ -1050,6 +1140,7 @@ const seedAll = async () => {
   await seedCardTemplates();
   await seedPrintedCards();
   await seedUserCards();
+  await seedQuizzes();
 
   mongoose.connection.close();
 };
