@@ -13,34 +13,56 @@ export class QuizService {
     userId: string
   ): Promise<any> {
     const skip = (page - 1) * limit;
-    // Find quizzes that have corresponding quiz results for the user
-    const resolvedQuizResults = await QuizResult.find({
-      userId,
-    })
-      .sort({ dateTaken: -1 }) // Sort by most recent
-      .skip(skip)
-      .limit(limit)
-      .populate({
-        path: 'quizId', // Populate the 'quizId' field
-        model: 'Quiz', // Reference the Quiz model
-        options: {
-          lean: true, // Return plain JavaScript objects instead of Mongoose documents
-        },
-      })
-      .lean();
 
-    return resolvedQuizResults.map((resolvedQuizz: any) => {
-      return {
-        quiz: {
-          _id: resolvedQuizz.quizId?._id.toString(),
-          title: resolvedQuizz.quizId?.title,
-          thumbnail: resolvedQuizz.quizId?.thumbnail,
+    // Specify the type of the pipeline explicitly
+    const pipeline: any[] = [
+      {
+        $match: { userId },
+      },
+      {
+        $sort: { dateTaken: -1 },
+      },
+      {
+        $skip: skip,
+      },
+      {
+        $limit: limit,
+      },
+      {
+        $lookup: {
+          from: 'quizzes', // Your Quiz model collection name
+          localField: 'quizId',
+          foreignField: '_id',
+          as: 'quiz',
         },
-        score: resolvedQuizz.score,
-        dateTaken: resolvedQuizz.dateTaken,
-        duration: resolvedQuizz.duration,
-      };
-    });
+      },
+      {
+        $unwind: '$quiz',
+      },
+      {
+        $project: {
+          _id: 0,
+          quiz: {
+            _id: '$quiz._id',
+            title: '$quiz.title',
+            thumbnail: '$quiz.thumbnail',
+          },
+          score: 1,
+          dateTaken: 1,
+          duration: 1,
+        },
+      },
+    ];
+
+    const [resolvedQuizzes, totalCount] = await Promise.all([
+      QuizResult.aggregate(pipeline),
+      QuizResult.countDocuments({ userId }),
+    ]);
+
+    return {
+      count: totalCount, // Total count of resolved quizzes
+      resolvedQuizzes, // Array of resolved quizzes
+    };
   }
 
   public async getUnresolvedQuizzes(
@@ -48,7 +70,7 @@ export class QuizService {
     limit: number,
     userId: string,
     searchQuery?: string
-  ): Promise<any[]> {
+  ): Promise<any> {
     // Calculate skip value based on the requested page and limit
     const skip = (page - 1) * limit;
 
@@ -59,6 +81,7 @@ export class QuizService {
       // If a searchQuery is provided, add a case-insensitive name search
       query.title = { $regex: new RegExp(searchQuery, 'i') };
     }
+
     // Find quizzes that do not have corresponding quiz results for the user
     const resolvedQuizResults = await QuizResult.find({
       userId,
@@ -66,97 +89,34 @@ export class QuizService {
     const resolvedQuizIds = resolvedQuizResults.map(
       (result: any) => result.quizId
     );
-    const unresolvedQuizzes = await Quiz.find({
-      _id: { $nin: resolvedQuizIds },
-    })
-      .sort({ createdAt: -1 }) // Sort by most recent
-      .skip(skip)
-      .limit(limit)
-      .populate({
-        path: 'questions', // Populate the 'questions' field
-        model: Question, // Reference the Question model
-        options: {
-          lean: true, // Return plain JavaScript objects instead of Mongoose documents
-        },
+
+    // Find unresolved quizzes and get the total count
+    const [unresolvedQuizzes, totalCount] = await Promise.all([
+      Quiz.find({
+        _id: { $nin: resolvedQuizIds },
       })
-      .lean();
+        .sort({ createdAt: -1 }) // Sort by most recent
+        .skip(skip)
+        .limit(limit)
+        .select('title thumbnail')
+        .lean(),
+      Quiz.countDocuments({
+        _id: { $nin: resolvedQuizIds },
+      }),
+    ]);
 
-    const res = unresolvedQuizzes.map((unresolvedQuizz: any) => {
-      const quizIdAsString = unresolvedQuizz._id.toString();
-      return {
-        ...unresolvedQuizz,
-        _id: quizIdAsString,
-      };
-    });
-    return res;
-  }
-
-  public async getRecentQuizzes(
-    page: number,
-    limit: number,
-    userId: string,
-    searchQuery?: string
-  ) {
-    // Calculate skip value based on the requested page and limit
-    const skip = (page - 1) * limit;
-
-    // Define the query object to filter by isExpired and optionally by name
-    const query: any = { isExpired: false };
-
-    if (searchQuery) {
-      // If a searchQuery is provided, add a case-insensitive name search
-      query.name = { $regex: new RegExp(searchQuery, 'i') };
-    }
-
-    // Query the database for recent quizzes with optional name search and pagination
-    const quizzes = await Quiz.find(query)
-      .sort({ createdAt: -1 }) // Sort by most recent
-      .skip(skip)
-      .limit(limit)
-      .populate({
-        path: 'questions', // Populate the 'questions' field
-        model: Question, // Reference the Question model
-        options: {
-          lean: true, // Return plain JavaScript objects instead of Mongoose documents
-        },
+    // Format the quiz data
+    const formattedQuizzes = unresolvedQuizzes.map(
+      (unresolvedQuizz: any) => ({
+        _id: unresolvedQuizz._id.toString(),
+        title: unresolvedQuizz.title,
+        thumbnail: unresolvedQuizz.thumbnail,
       })
-      .lean(); // Return plain JavaScript objects instead of Mongoose documents
-
-    // Fetch resolved quizzes and their Quiz Results in parallel
-    const resolvedQuizzes = await Promise.all(
-      quizzes.map(async (quiz) => {
-        const quizIdAsString = quiz._id.toString();
-
-        // Check if the quiz is resolved by the user
-        const isQuizResolved = await QuizResult.findOne({
-          userId,
-          quiz: quizIdAsString,
-        });
-
-        const questionsModified = quiz.questions.map(
-          (question: any) => ({
-            ...question,
-            _id: question._id.toString(),
-          })
-        );
-
-        return {
-          ...quiz,
-          isQuizResolved: !!isQuizResolved,
-          _id: quizIdAsString,
-          questions: questionsModified,
-        };
-      })
-    );
-
-    // Filter other quizzes that are not resolved
-    const otherQuizzes = resolvedQuizzes.filter(
-      (quiz) => !quiz.isQuizResolved
     );
 
     return {
-      resolvedQuizzes,
-      otherQuizzes,
+      count: totalCount, // Total count of unresolved quizzes
+      unresolvedQuizzes: formattedQuizzes, // Array of unresolved quizzes
     };
   }
 
