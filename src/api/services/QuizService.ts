@@ -5,6 +5,10 @@ import { Service } from 'typedi';
 import Quiz from '../models/Quiz';
 import QuizResult from '../models/QuizResult';
 import mongoose from 'mongoose';
+import {
+  CreateQuestionBody,
+  CreateQuizBody,
+} from '../controllers/requests/QuizRequests';
 
 @Service()
 export class QuizService {
@@ -160,11 +164,35 @@ export class QuizService {
     }
   }
 
-  async getQuizDetailsById(quizId: string) {
-    const quiz = await Quiz.findById(quizId);
+  public async getQuizDetailsById(quizId: string) {
+    const quiz = await Quiz.findById(quizId)
+      .populate('questions')
+      .lean();
     if (!quiz) {
       throw new BadRequestError('Quiz not found');
     }
-    return quiz.toObject();
+    return {
+      ...quiz,
+      _id: quiz._id.toString(),
+    };
+  }
+  public async createQuizWithQuestions(
+    createQuizDto: CreateQuizBody
+  ): Promise<void> {
+    const questionsData: CreateQuestionBody[] =
+      createQuizDto.questions;
+    const questions = await Question.insertMany(questionsData);
+
+    const quizData = {
+      title: createQuizDto.title,
+      description: createQuizDto.description,
+      thumbnail: createQuizDto.thumbnail,
+      questions: questions.map((q) => q._id),
+      isExpired: false,
+      createdAt: new Date(),
+    };
+
+    const quiz = new Quiz(quizData);
+    await quiz.save();
   }
 }

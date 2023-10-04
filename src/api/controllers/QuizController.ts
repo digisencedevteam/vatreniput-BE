@@ -9,8 +9,12 @@ import {
   Param,
   Post,
   QueryParam,
+  Res,
 } from 'routing-controllers';
 import { UserType } from '../../types';
+import { CreateQuizBody } from './requests/QuizRequests';
+import { validate } from 'class-validator';
+import * as express from 'express';
 
 @JsonController('/quizzes')
 export default class QuizController {
@@ -89,5 +93,25 @@ export default class QuizController {
       duration
     );
     return result;
+  }
+  @Post('/new')
+  public async createQuizWithQuestions(
+    @Body() createQuizBody: CreateQuizBody,
+    @Res() res: express.Response
+  ): Promise<void> {
+    console.log('this is body', createQuizBody);
+    // TODO: fix this
+    // const errors = await validate(createQuizBody, {
+    //   validationError: { target: false },
+    // });
+    // if (errors.length > 0) {
+    //   console.log(errors, 'EROROROROOROR');
+
+    //   throw new BadRequestError(errors.join(','));
+    // }
+    await this.quizService.createQuizWithQuestions(createQuizBody);
+    res.status(200).send({
+      message: 'Ok.',
+    });
   }
 }
