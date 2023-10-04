@@ -4,6 +4,7 @@ import { BadRequestError } from 'routing-controllers';
 import { Service } from 'typedi';
 import Quiz from '../models/Quiz';
 import QuizResult from '../models/QuizResult';
+import mongoose from 'mongoose';
 
 @Service()
 export class QuizService {
@@ -118,6 +119,45 @@ export class QuizService {
       count: totalCount, // Total count of unresolved quizzes
       unresolvedQuizzes: formattedQuizzes, // Array of unresolved quizzes
     };
+  }
+
+  public async submitQuizResult(
+    userId: string,
+    quizId: string,
+    score: number,
+    duration: number
+  ) {
+    try {
+      // Ensure that the userId and quizId are valid ObjectId strings
+      if (
+        !mongoose.Types.ObjectId.isValid(userId) ||
+        !mongoose.Types.ObjectId.isValid(quizId)
+      ) {
+        throw new Error('Invalid userId or quizId');
+      }
+
+      // Check if the quiz exists
+      const quiz = await Quiz.findById(quizId);
+      if (!quiz) {
+        throw new Error('Quiz not found');
+      }
+
+      // Create a new QuizResult document
+      const quizResult = new QuizResult({
+        userId,
+        quizId,
+        score,
+        duration,
+      });
+
+      // Save the QuizResult to the database
+      await quizResult.save();
+
+      return { message: 'QuizResult submitted successfully' };
+    } catch (error) {
+      console.error(error);
+      throw new Error('Internal Server Error');
+    }
   }
 
   async getQuizDetailsById(quizId: string) {

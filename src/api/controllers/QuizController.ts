@@ -2,10 +2,12 @@ import { QuizService } from '../services/QuizService';
 import {
   Authorized,
   BadRequestError,
+  Body,
   CurrentUser,
   Get,
   JsonController,
   Param,
+  Post,
   QueryParam,
 } from 'routing-controllers';
 import { UserType } from '../../types';
@@ -28,8 +30,8 @@ export default class QuizController {
   ) {
     const userId = user?._id;
     const quizzes = await this.quizService.getUnresolvedQuizzes(
-      page,
-      limit,
+      Number(page),
+      Number(limit),
       userId,
       searchQuery
     );
@@ -46,8 +48,8 @@ export default class QuizController {
     const userId = user?._id;
     const quizzes =
       await this.quizService.getResolvedQuizzesWithResults(
-        page,
-        limit,
+        Number(page),
+        Number(limit),
         userId
       );
     return quizzes;
@@ -63,5 +65,29 @@ export default class QuizController {
       throw new BadRequestError('Quiz not found');
     }
     return quizDetails;
+  }
+
+  @Post('/')
+  public async submitQuizResult(
+    @Body()
+    {
+      userId,
+      quizId,
+      score,
+      duration,
+    }: {
+      userId: string;
+      quizId: string;
+      score: number;
+      duration: number;
+    }
+  ) {
+    const result = await this.quizService.submitQuizResult(
+      userId,
+      quizId,
+      score,
+      duration
+    );
+    return result;
   }
 }
