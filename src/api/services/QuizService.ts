@@ -202,6 +202,7 @@ export class QuizService {
       thumbnail: createQuizDto.thumbnail,
       questions: questions.map((q) => q._id),
       isExpired: false,
+      availableUntil: new Date(createQuizDto.availableUntil),
       createdAt: new Date(),
     };
 

@@ -2,7 +2,6 @@ import {
   IsString,
   IsArray,
   ArrayMinSize,
-  ArrayMaxSize,
   ArrayUnique,
   IsOptional,
   IsUrl,
@@ -11,7 +10,7 @@ import {
 
 export class CreateQuestionBody {
   @IsString()
-  public text: string = '';
+  public text?: string;
 
   @IsUrl()
   @IsOptional()
@@ -20,7 +19,7 @@ export class CreateQuestionBody {
   @IsArray()
   @ArrayMinSize(2)
   @ArrayUnique()
-  public options: string[] = [];
+  public options?: string[];
 
   @IsNumber()
   public correctOption: number = 0;
@@ -28,15 +27,18 @@ export class CreateQuestionBody {
 
 export class CreateQuizBody {
   @IsString()
-  public title: string = '';
+  public title?: string;
 
   @IsString()
-  public description: string = '';
+  public description?: string;
 
   @IsArray()
   @ArrayMinSize(1)
   public questions: CreateQuestionBody[] = [];
 
   @IsString()
-  public thumbnail: string = '';
+  public thumbnail?: string;
+
+  @IsString()
+  public availableUntil: string = '';
 }
