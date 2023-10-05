@@ -10,7 +10,7 @@ export interface Quiz extends Document {
 }
 
 const quizSchema: Schema = new Schema({
-  title: { type: String, required: true },
+  title: { type: String, required: true, unique: true },
   description: { type: String, required: true },
   questions: [{ type: Schema.Types.ObjectId, ref: 'Question' }],
   thumbnail: { type: String },

@@ -98,8 +98,7 @@ export default class QuizController {
   public async createQuizWithQuestions(
     @Body() createQuizBody: CreateQuizBody,
     @Res() res: express.Response
-  ): Promise<void> {
-    console.log('this is body', createQuizBody);
+  ): Promise<any> {
     // TODO: fix this
     // const errors = await validate(createQuizBody, {
     //   validationError: { target: false },
@@ -109,9 +108,8 @@ export default class QuizController {
 
     //   throw new BadRequestError(errors.join(','));
     // }
-    await this.quizService.createQuizWithQuestions(createQuizBody);
-    res.status(200).send({
-      message: 'Ok.',
-    });
+    return await this.quizService.createQuizWithQuestions(
+      createQuizBody
+    );
   }
 }

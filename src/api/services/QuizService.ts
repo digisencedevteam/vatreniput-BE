@@ -178,7 +178,18 @@ export class QuizService {
   }
   public async createQuizWithQuestions(
     createQuizDto: CreateQuizBody
-  ): Promise<void> {
+  ): Promise<typeof Quiz> {
+    const existingQuiz = await Quiz.findOne({
+      title: createQuizDto.title,
+    }).exec();
+
+    if (existingQuiz) {
+      // A quiz with the same title already exists
+      throw new BadRequestError(
+        'A quiz with this title already exists.'
+      );
+    }
+
     const questionsData: CreateQuestionBody[] =
       createQuizDto.questions;
     const questions = await Question.insertMany(questionsData);
@@ -194,5 +205,6 @@ export class QuizService {
 
     const quiz = new Quiz(quizData);
     await quiz.save();
+    return quiz.toObject();
   }
 }
