@@ -94,28 +94,30 @@ export class QuizService {
     const resolvedQuizIds = resolvedQuizResults.map(
       (result: any) => result.quizId
     );
-
+    const today = new Date();
     // Find unresolved quizzes and get the total count
     const [unresolvedQuizzes, totalCount] = await Promise.all([
       Quiz.find({
         _id: { $nin: resolvedQuizIds },
+        availableUntil: { $gte: today }, // Filter out quizzes where availableUntil is greater than or equal to today's date
       })
         .sort({ createdAt: -1 }) // Sort by most recent
         .skip(skip)
         .limit(limit)
-        .select('title thumbnail')
+        .select('title thumbnail availableUntil')
         .lean(),
       Quiz.countDocuments({
         _id: { $nin: resolvedQuizIds },
+        availableUntil: { $gte: today }, // Filter out quizzes where availableUntil is greater than or equal to today's date
       }),
     ]);
-
     // Format the quiz data
     const formattedQuizzes = unresolvedQuizzes.map(
       (unresolvedQuizz: any) => ({
         _id: unresolvedQuizz._id.toString(),
         title: unresolvedQuizz.title,
         thumbnail: unresolvedQuizz.thumbnail,
+        availableUntil: unresolvedQuizz.availableUntil,
       })
     );
 

@@ -7,6 +7,7 @@ export interface Quiz extends Document {
   questions: Array<Schema.Types.ObjectId>;
   isExpired: boolean;
   createdAt: Date;
+  availableUntil: Date;
 }
 
 const quizSchema: Schema = new Schema({
@@ -15,6 +16,7 @@ const quizSchema: Schema = new Schema({
   questions: [{ type: Schema.Types.ObjectId, ref: 'Question' }],
   thumbnail: { type: String },
   createdAt: { type: Date, default: Date.now },
+  availableUntil: { type: Date, default: null },
   isExpired: { type: Boolean, default: false },
 });
 

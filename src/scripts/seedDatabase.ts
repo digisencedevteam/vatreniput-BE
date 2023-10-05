@@ -108,7 +108,9 @@ const seedQuizzes = async () => {
   await Question.insertMany(questionData);
   const questions = await Question.find();
   const questionIds = questions.map((question) => question._id);
-  console.log(questions, 'FOUND QUESTIONS');
+  const date = new Date('2023-12-17T03:24:00');
+  const date1 = new Date('2023-12-01T13:24:00');
+  const date2 = new Date('2023-12-31T23:59:00');
 
   const quizData = [
     {
@@ -118,6 +120,16 @@ const seedQuizzes = async () => {
       questions: questionIds,
       thumbnail:
         'https://res.cloudinary.com/dzg5kxbau/image/upload/v1693923677/HRV52006_copy_p8edoc.jpg',
+      availableUntil: date,
+    },
+    {
+      title: 'Kviz o Rusiji 2018',
+      description:
+        'Testirajte svoje znanje o prventstvu u Rusiji. Otkrijte koliko dobro poznajete naše sportske junake.',
+      questions: questionIds,
+      thumbnail:
+        'https://res.cloudinary.com/dzg5kxbau/image/upload/v1691140108/peri%C5%A1i%C4%87_slavlje_1_2_bczyud.jpg',
+      availableUntil: date1,
     },
     {
       title: 'Kviz o Hrvatskim Nogometašima RIJEŠENI',
@@ -126,6 +138,7 @@ const seedQuizzes = async () => {
       questions: questionIds,
       thumbnail:
         'https://res.cloudinary.com/dzg5kxbau/image/upload/v1693923677/HRV52006_copy_p8edoc.jpg',
+      availableUntil: date1,
     },
   ];
   await Quiz.insertMany(quizData);
@@ -1134,12 +1147,12 @@ const seedUserCards = async () => {
 };
 
 const seedAll = async () => {
-  await seedUsers();
-  await seedAlbums();
-  await seedEvents();
-  await seedCardTemplates();
-  await seedPrintedCards();
-  await seedUserCards();
+  // await seedUsers();
+  // await seedAlbums();
+  // await seedEvents();
+  // await seedCardTemplates();
+  // await seedPrintedCards();
+  // await seedUserCards();
   await seedQuizzes();
 
   mongoose.connection.close();
