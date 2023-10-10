@@ -62,6 +62,18 @@ export class UserService {
     return user;
   }
 
+  public async findOneByEmail(
+    email: string
+  ): Promise<UserType | null> {
+    const user = await User.findOne({ email }).lean();
+    return user;
+  }
+
+  public async findOneById(userId: string): Promise<UserType | null> {
+    const user = await User.findOne({ _id: userId }).lean();
+    return user;
+  }
+
   public async updateUser(
     userId: string,
     updateData: Partial<UserType>
