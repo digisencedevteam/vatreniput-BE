@@ -9,6 +9,9 @@ import {
 } from 'class-validator';
 
 export class CreateQuestionBody {
+  @IsOptional()
+  public _id?: string;
+
   @IsString()
   public text?: string;
 
@@ -26,6 +29,9 @@ export class CreateQuestionBody {
 }
 
 export class CreateQuizBody {
+  @IsOptional()
+  public _id?: string;
+
   @IsString()
   public title?: string;
 

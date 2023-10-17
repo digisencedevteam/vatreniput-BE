@@ -170,17 +170,26 @@ export class QuizService {
     const quiz = await Quiz.findById(quizId)
       .populate('questions')
       .lean();
+
     if (!quiz) {
       throw new BadRequestError('Quiz not found');
     }
     return {
       ...quiz,
       _id: quiz._id.toString(),
+      questions: quiz.questions
+        ? quiz?.questions.map((question: any) => {
+            return {
+              ...question,
+              _id: question._id.toString(),
+            };
+          })
+        : null,
     };
   }
   public async createQuizWithQuestions(
     createQuizDto: CreateQuizBody
-  ): Promise<typeof Quiz> {
+  ): Promise<any> {
     const existingQuiz = await Quiz.findOne({
       title: createQuizDto.title,
     }).exec();
@@ -207,7 +216,90 @@ export class QuizService {
     };
 
     const quiz = new Quiz(quizData);
-    await quiz.save();
-    return quiz.toObject();
+    const result = await quiz.save();
+    return {
+      ...result.toObject(),
+      _id: result._id.toString(),
+    };
+  }
+  public async editQuiz(
+    quizId: string,
+    updateQuizDto: CreateQuizBody
+  ): Promise<any> {
+    // Find the existing quiz by ID
+    const existingQuiz = await Quiz.findById({ _id: quizId }).exec();
+
+    if (!existingQuiz) {
+      throw new BadRequestError('Quiz not found.');
+    }
+
+    existingQuiz.title = updateQuizDto.title || existingQuiz.title;
+    existingQuiz.description =
+      updateQuizDto.description || existingQuiz.description;
+    existingQuiz.thumbnail =
+      updateQuizDto.thumbnail || existingQuiz.thumbnail;
+    existingQuiz.availableUntil =
+      new Date(updateQuizDto.availableUntil) ||
+      existingQuiz.availableUntil;
+
+    // Updating Questions
+    const updatedQuestionIds: any[] = [];
+    for (const questionDto of updateQuizDto.questions) {
+      if (questionDto._id) {
+        // If question ID exists, update the existing question
+        const existingQuestion = await Question.findById(
+          questionDto._id
+        ).exec();
+
+        if (!existingQuestion) {
+          throw new BadRequestError(
+            `Question with ID ${questionDto._id} not found.`
+          );
+        }
+        existingQuestion.text =
+          questionDto.text || existingQuestion.text;
+        existingQuestion.options =
+          questionDto.options || existingQuestion.options;
+        existingQuestion.correctOption =
+          questionDto.correctOption || existingQuestion.correctOption;
+        existingQuestion.image =
+          questionDto.image || existingQuestion.image;
+        await existingQuestion.save();
+
+        updatedQuestionIds.push(existingQuestion._id);
+      } else {
+        // Else create a new question
+        const newQuestion = new Question(questionDto);
+        await newQuestion.save();
+        updatedQuestionIds.push(newQuestion._id);
+      }
+    }
+
+    // Update the quiz's question list
+    existingQuiz.questions = updatedQuestionIds;
+
+    await existingQuiz.save();
+
+    return {
+      ...existingQuiz.toObject(),
+      _id: existingQuiz._id.toString(),
+    };
+  }
+
+  public async deleteQuiz(quizId: string): Promise<void> {
+    // Find the quiz by ID
+    const existingQuiz = await Quiz.findById(quizId);
+
+    if (!existingQuiz) {
+      throw new BadRequestError('Quiz not found');
+    }
+
+    // Delete questions related to the quiz
+    await Question.deleteMany({
+      _id: { $in: existingQuiz.questions },
+    });
+
+    // Delete the quiz itself
+    await Quiz.findByIdAndDelete(quizId);
   }
 }

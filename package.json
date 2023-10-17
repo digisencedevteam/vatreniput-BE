@@ -25,6 +25,7 @@
   "homepage": "https://github.com/aseparovic2/vatreniput-BE#readme",
   "dependencies": {
     "@mailchimp/mailchimp_marketing": "^3.0.80",
+    "@sendgrid/mail": "^7.7.0",
     "@types/jsonwebtoken": "^9.0.2",
     "bcrypt": "^5.1.0",
     "body-parser": "^1.20.2",

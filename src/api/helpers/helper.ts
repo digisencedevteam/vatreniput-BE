@@ -1,8 +1,9 @@
 import * as crypto from 'crypto';
-import mailchimp from '@mailchimp/mailchimp_marketing'; // Import the Mailchimp library
+const sgMail = require('@sendgrid/mail');
 
 // Define the Mailchimp list ID or audience ID
-const listId = 'your-list-id';
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const sendgridEmailTemplateId = 'd-fb9e3fc9047d4c31b31c9608a7934c9b';
 
 /**
  * Generate a secure random token.
@@ -27,44 +28,53 @@ export async function generateSecureToken(
 // Function to send a password reset email
 export async function sendPasswordResetEmail(
   email: string,
-  resetLink: string
+  token: string
 ) {
+  const msg = {
+    to: email,
+    from: 'antonio@digisence.agency',
+    templateId: sendgridEmailTemplateId,
+    dynamicTemplateData: {
+      resetLink: `${backendAppLink}/reset-password/${token}`,
+    },
+  };
+
   try {
-    // Prepare the merge fields for the email template
-    const mergeFields = {
-      RESET_LINK: resetLink,
-    };
-
-    // Send the email using Mailchimp
-    // @ts-ignore
-    const response = await mailchimp.messages.send({
-      message: {
-        to: [{ email }],
-        template: {
-          id: 'your-template-id', // The ID of your Mailchimp email template
-          merge_language: 'handlebars', // Use Handlebars for merge tags
-          merge_fields: mergeFields, // Merge fields for dynamic content
-        },
-      },
-    });
-
-    // Handle the response, check for success or error
-    if (response.status === 'sent') {
-      console.log('Password reset email sent successfully.');
-    } else {
-      console.error(
-        'Failed to send password reset email:',
-        response.errors
-      );
-    }
+    await sgMail.send(msg);
+    console.log('Password reset email sent successfully.');
   } catch (error) {
     console.error('Error sending password reset email:', error);
   }
 }
 
-// // Example usage
-// const userEmail = 'user@example.com';
-// const resetToken = 'your-reset-token';
-// const resetLink = `https://example.com/reset-password?token=${resetToken}`;
+export const isEnvDevelopment =
+  process.env.BACKEND_APP_ENV === 'development';
+export const isEnvProduction =
+  process.env.BACKEND_APP_ENV === 'production';
 
-// sendPasswordResetEmail(userEmail, resetLink);
+type AtEnvProps = {
+  defaultValue: string;
+  staging?: string | undefined;
+  development?: string | undefined;
+  production?: string | undefined;
+};
+
+export const atEnv = ({
+  defaultValue,
+  development,
+  production,
+}: AtEnvProps) => {
+  if (isEnvDevelopment) {
+    return development || defaultValue;
+  }
+  if (isEnvProduction) {
+    return production || defaultValue;
+  }
+  return defaultValue;
+};
+
+export const backendAppLink = atEnv({
+  defaultValue: 'http://localhost:3001',
+  development: 'https://vatreniput-be-8083fcaa25e5.herokuapp.com',
+  production: 'https://vatreniput-be-8083fcaa25e5.herokuapp.com',
+});

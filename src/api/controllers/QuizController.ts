@@ -4,10 +4,12 @@ import {
   BadRequestError,
   Body,
   CurrentUser,
+  Delete,
   Get,
   JsonController,
   Param,
   Post,
+  Put,
   QueryParam,
   Res,
 } from 'routing-controllers';
@@ -94,6 +96,8 @@ export default class QuizController {
     );
     return result;
   }
+
+  @Authorized()
   @Post('/new')
   public async createQuizWithQuestions(
     @Body() createQuizBody: CreateQuizBody,
@@ -111,5 +115,25 @@ export default class QuizController {
     return await this.quizService.createQuizWithQuestions(
       createQuizBody
     );
+  }
+
+  @Authorized()
+  @Put('/:quizId')
+  async editQuiz(
+    @Param('quizId') quizId: string,
+    @Body() updatedQuizData: CreateQuizBody
+  ) {
+    const editedQuiz = await this.quizService.editQuiz(
+      quizId,
+      updatedQuizData
+    );
+    return editedQuiz;
+  }
+
+  @Authorized()
+  @Delete('/:quizId')
+  async deleteQuiz(@Param('quizId') quizId: string) {
+    await this.quizService.deleteQuiz(quizId);
+    return { message: 'Quiz deleted successfully' };
   }
 }

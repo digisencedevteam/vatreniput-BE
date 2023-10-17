@@ -21,7 +21,9 @@ import QuizResult from '../api/models/QuizResult';
 dotenv.config();
 
 const MONGODB_URI =
-  process.env.MONGODB_URI || 'mongodb://localhost:27017/vatreniput';
+  'mongodb+srv://vatreni:vatreniputmongodb@serverlessinstance0-vat.hs8h0mi.mongodb.net/?retryWrites=true&w=majority';
+
+//process.env.MONGODB_URI || 'mongodb://localhost:27017/vatreniput';
 
 mongoose.connect(MONGODB_URI);
 
@@ -1147,12 +1149,12 @@ const seedUserCards = async () => {
 };
 
 const seedAll = async () => {
-  // await seedUsers();
-  // await seedAlbums();
-  // await seedEvents();
-  // await seedCardTemplates();
-  // await seedPrintedCards();
-  // await seedUserCards();
+  await seedUsers();
+  await seedAlbums();
+  await seedEvents();
+  await seedCardTemplates();
+  await seedPrintedCards();
+  await seedUserCards();
   await seedQuizzes();
 
   mongoose.connection.close();
