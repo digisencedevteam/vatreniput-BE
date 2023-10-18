@@ -30,17 +30,59 @@ export class VotingService {
 
   async updateVoting(
     votingId: string,
-    updatedData: any
+    updateVotingData: any
   ): Promise<any> {
-    const voting = await Voting.findById(votingId).exec();
-    if (!voting) {
-      throw new BadRequestError('Voting not found.');
+    const existingVoting = await Voting.findById(votingId)
+      .populate('votingOptions')
+      .exec();
+
+    if (!existingVoting) {
+      throw new BadRequestError(
+        'Voting with the given ID does not exist.'
+      );
     }
 
-    // Handle VotingOption updates here (create new options, delete removed ones, etc.)
+    // Update the basic properties
+    existingVoting.title = updateVotingData.title;
+    existingVoting.description = updateVotingData.description;
+    existingVoting.availableUntil = updateVotingData.availableUntil;
+    existingVoting.thumbnail = updateVotingData.thumbnail;
 
-    Object.assign(voting, updatedData);
-    return await voting.save();
+    const existingOptionTexts = existingVoting.votingOptions.map(
+      (option: any) => option.text
+    );
+    const newOptionTexts = updateVotingData.votingOptions.map(
+      (option: any) => option.text
+    );
+
+    // Find options to remove
+    const optionsToRemove = existingVoting.votingOptions.filter(
+      (option) => !newOptionTexts.includes(option.text)
+    );
+
+    const idsToRemove = optionsToRemove.map(
+      (option: any) => option._id
+    );
+
+    const optionsToAdd = newOptionTexts.filter(
+      (option: any) => !existingOptionTexts.includes(option)
+    );
+
+    // Remove options that are not in the new data
+    await VotingOption.deleteMany({ _id: { $in: idsToRemove } });
+
+    // Add new options
+    const newVotingOptions = await VotingOption.insertMany(
+      optionsToAdd.map((text: any) => ({ text }))
+    );
+
+    // Update the votingOptions in the Voting document
+    existingVoting.votingOptions = existingVoting.votingOptions
+      .filter((option: any) => !idsToRemove.includes(option._id))
+      .concat(newVotingOptions.map((option: any) => option._id));
+
+    // Save the updated Voting
+    return await existingVoting.save();
   }
 
   async deleteVoting(votingId: string): Promise<any> {
