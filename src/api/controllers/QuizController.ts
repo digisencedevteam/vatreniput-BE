@@ -16,7 +16,7 @@ import {
 import { UserType } from '../../types';
 import { CreateQuizBody } from './requests/QuizRequests';
 import { validate } from 'class-validator';
-import * as express from 'express';
+import { Response } from 'express';
 
 @JsonController('/quizzes')
 export default class QuizController {
@@ -61,6 +61,43 @@ export default class QuizController {
     return quizzes;
   }
 
+  @Authorized()
+  @Get('/all')
+  public async getAllQuizzes(@Res() res: Response) {
+    try {
+      const quizzes = await this.quizService.getAllQuizTitles();
+      res.status(200).json(quizzes);
+    } catch (error) {
+      res.status(500).json({
+        error: 'An error occurred while fetching quiz titles.',
+      });
+    }
+  }
+
+  @Authorized()
+  @Get('/results')
+  public async getBestQuizResults(
+    @QueryParam('quizId') quizId: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+    @Res() res: Response
+  ) {
+    try {
+      const result = await this.quizService.getBestQuizResults(
+        quizId,
+        Number(page),
+        Number(limit)
+      );
+
+      return res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        error: 'An error occurred while fetching quiz results.',
+      });
+    }
+  }
+
+  @Authorized()
   @Get('/:quizId')
   async getQuizDetails(@Param('quizId') quizId: string) {
     const quizDetails = await this.quizService.getQuizDetailsById(
@@ -101,7 +138,7 @@ export default class QuizController {
   @Post('/new')
   public async createQuizWithQuestions(
     @Body() createQuizBody: CreateQuizBody,
-    @Res() res: express.Response
+    @Res() res: Response
   ): Promise<any> {
     // TODO: fix this
     // const errors = await validate(createQuizBody, {

@@ -286,6 +286,35 @@ export class QuizService {
     };
   }
 
+  public async getBestQuizResults(
+    quizId: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const skip = (page - 1) * limit;
+
+    const query = { quizId };
+
+    const quizResults = await QuizResult.find(query)
+      .sort({ score: -1, duration: 1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('userId') // replace 'username' with actual user fields you'd like to display
+      .exec();
+
+    const total = await QuizResult.countDocuments(query);
+
+    return {
+      quizResults,
+      count: total,
+    };
+  }
+
+  public async getAllQuizTitles() {
+    const quizzes = await Quiz.find({}, 'title').exec();
+    return quizzes;
+  }
+
   public async deleteQuiz(quizId: string): Promise<void> {
     // Find the quiz by ID
     const existingQuiz = await Quiz.findById(quizId);
