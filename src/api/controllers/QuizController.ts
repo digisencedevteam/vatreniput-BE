@@ -66,9 +66,9 @@ export default class QuizController {
   public async getAllQuizzes(@Res() res: Response) {
     try {
       const quizzes = await this.quizService.getAllQuizTitles();
-      res.status(200).json(quizzes);
+      return res.status(200).json(quizzes);
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         error: 'An error occurred while fetching quiz titles.',
       });
     }
@@ -91,7 +91,7 @@ export default class QuizController {
 
       return res.status(200).json(result);
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         error: 'An error occurred while fetching quiz results.',
       });
     }
