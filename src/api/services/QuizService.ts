@@ -113,14 +113,21 @@ export class QuizService {
       }),
     ]);
     // Format the quiz data
-    const formattedQuizzes = unresolvedQuizzes.map(
-      (unresolvedQuizz: any) => ({
-        _id: unresolvedQuizz._id.toString(),
-        title: unresolvedQuizz.title,
-        thumbnail: unresolvedQuizz.thumbnail,
-        availableUntil: unresolvedQuizz.availableUntil,
-      })
-    );
+    const formattedQuizzes = [];
+    for (const unresolvedQuiz of unresolvedQuizzes) {
+      const status = await QuizStatus.find({
+        quizId: unresolvedQuiz._id,
+        userId,
+      });
+      const formatted = {
+        _id: unresolvedQuiz._id.toString(),
+        title: unresolvedQuiz.title,
+        thumbnail: unresolvedQuiz.thumbnail,
+        availableUntil: unresolvedQuiz.availableUntil,
+        status,
+      };
+      formattedQuizzes.push(formatted);
+    }
 
     return {
       count: totalCount, // Total count of unresolved quizzes

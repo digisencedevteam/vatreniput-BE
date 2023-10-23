@@ -30,6 +30,7 @@ export default class QuizController {
   @Get('/unresolved')
   async getUnresolvedQuizzes(
     @CurrentUser({ required: true }) user: UserType,
+    @Res() res: Response,
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 5,
     @QueryParam('search') searchQuery?: string
@@ -41,7 +42,8 @@ export default class QuizController {
       userId,
       searchQuery
     );
-    return quizzes;
+
+    return res.json(quizzes);
   }
 
   @Authorized()
