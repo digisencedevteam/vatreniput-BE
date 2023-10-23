@@ -99,15 +99,29 @@ export default class QuizController {
 
   @Authorized()
   @Get('/:quizId')
-  async getQuizDetails(@Param('quizId') quizId: string) {
+  async getQuizDetails(
+    @Param('quizId') quizId: string,
+    @CurrentUser({ required: true }) user: UserType,
+    @Res() res: Response
+  ) {
+    const userId = user._id;
     const quizDetails = await this.quizService.getQuizDetailsById(
       quizId
     );
+    const quizStatus =
+      await this.quizService.getQuizStatusByUserAndIs(userId, quizId);
 
     if (!quizDetails) {
       throw new BadRequestError('Quiz not found');
     }
-    return quizDetails;
+    const isQuizzResolved =
+      await this.quizService.checkIfQuizResolved(userId, quizId);
+
+    return res.json({
+      ...quizDetails,
+      status: quizStatus ? quizStatus : null,
+      isResolved: !!isQuizzResolved && !!isQuizzResolved.length,
+    });
   }
 
   @Post('/')
@@ -152,6 +166,18 @@ export default class QuizController {
     return await this.quizService.createQuizWithQuestions(
       createQuizBody
     );
+  }
+
+  @Authorized()
+  @Post('/:quizId/start')
+  async startQuiz(
+    @Param('quizId') quizId: string,
+    @CurrentUser({ required: true }) user: UserType
+  ) {
+    const userId = user._id;
+    await this.quizService.startQuizz(userId, quizId);
+
+    return { message: 'Quiz started successfully.' };
   }
 
   @Authorized()

@@ -4,6 +4,7 @@ import { BadRequestError } from 'routing-controllers';
 import { Service } from 'typedi';
 import Quiz from '../models/Quiz';
 import QuizResult from '../models/QuizResult';
+import QuizStatus from '../models/QuizStatus';
 import mongoose from 'mongoose';
 import {
   CreateQuestionBody,
@@ -155,6 +156,9 @@ export class QuizService {
         score,
         duration,
       });
+
+      // Delete the QuizStatus document for this user and quiz
+      await QuizStatus.deleteOne({ userId, quizId });
 
       // Save the QuizResult to the database
       await quizResult.save();
@@ -313,6 +317,45 @@ export class QuizService {
   public async getAllQuizTitles() {
     const quizzes = await Quiz.find({}, 'title').exec();
     return quizzes;
+  }
+
+  public async getQuizStatusByUserAndIs(
+    userId: string,
+    quizId: string
+  ) {
+    const statuses = await QuizStatus.findOne({
+      userId,
+      quizId,
+    }).lean();
+    return statuses;
+  }
+
+  public async checkIfQuizResolved(userId: string, quizId: string) {
+    const results = await QuizResult.find({
+      userId,
+      quizId,
+    }).exec();
+    return results;
+  }
+
+  public async startQuizz(userId: string, quizId: string) {
+    const existingStatus = await QuizStatus.findOne({
+      userId,
+      quizId,
+    });
+
+    if (existingStatus && existingStatus.status !== 'notStarted') {
+      throw new BadRequestError('Quiz already started or completed.');
+    }
+
+    const status = {
+      userId,
+      quizId,
+      status: 'inProgress',
+      startTime: new Date(),
+    };
+
+    await QuizStatus.create(status);
   }
 
   public async deleteQuiz(quizId: string): Promise<void> {
