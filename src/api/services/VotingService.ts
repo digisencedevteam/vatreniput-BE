@@ -48,37 +48,72 @@ export class VotingService {
     existingVoting.availableUntil = updateVotingData.availableUntil;
     existingVoting.thumbnail = updateVotingData.thumbnail;
 
-    const existingOptionTexts = existingVoting.votingOptions.map(
-      (option: any) => option.text
-    );
-    const newOptionTexts = updateVotingData.votingOptions.map(
-      (option: any) => option.text
-    );
-
-    // Find options to remove
-    const optionsToRemove = existingVoting.votingOptions.filter(
-      (option) => !newOptionTexts.includes(option.text)
+    // Create a map of existing options for easier comparison
+    const existingOptionsMap = existingVoting.votingOptions.reduce(
+      (map: any, option: any) => {
+        map[option.text] = option;
+        return map;
+      },
+      {}
     );
 
-    const idsToRemove = optionsToRemove.map(
-      (option: any) => option._id
-    );
+    // Determine options to remove, add, or update
+    const optionsToRemove: any[] = [];
+    const optionsToAdd: any[] = [];
+    const optionsToUpdate: any[] = [];
 
-    const optionsToAdd = newOptionTexts.filter(
-      (option: any) => !existingOptionTexts.includes(option)
-    );
+    updateVotingData.votingOptions.forEach((option: any) => {
+      if (existingOptionsMap.hasOwnProperty(option.text)) {
+        // Existing option, check if thumbnail has changed
+        if (
+          existingOptionsMap[option.text].thumbnail !==
+          option.thumbnail
+        ) {
+          // Thumbnail has changed, mark for update
+          optionsToUpdate.push(option);
+        }
+      } else {
+        // New option, mark for addition
+        optionsToAdd.push(option);
+      }
+    });
+
+    existingVoting.votingOptions.forEach((option: any) => {
+      if (
+        !updateVotingData.votingOptions.some(
+          (newOption: any) => newOption.text === option.text
+        )
+      ) {
+        // Option has been removed, mark for removal
+        optionsToRemove.push(option);
+      }
+    });
 
     // Remove options that are not in the new data
-    await VotingOption.deleteMany({ _id: { $in: idsToRemove } });
+    await VotingOption.deleteMany({
+      _id: { $in: optionsToRemove.map((option) => option._id) },
+    });
 
     // Add new options
     const newVotingOptions = await VotingOption.insertMany(
-      optionsToAdd.map((text: any) => ({ text }))
+      optionsToAdd.map((option) => ({
+        text: option.text,
+        thumbnail: option.thumbnail,
+      }))
+    );
+
+    // Update existing options
+    await Promise.all(
+      optionsToUpdate.map(async (option: any) => {
+        const existingOption = existingOptionsMap[option.text];
+        existingOption.thumbnail = option.thumbnail;
+        await existingOption.save();
+      })
     );
 
     // Update the votingOptions in the Voting document
     existingVoting.votingOptions = existingVoting.votingOptions
-      .filter((option: any) => !idsToRemove.includes(option._id))
+      .filter((option: any) => !optionsToRemove.includes(option))
       .concat(newVotingOptions.map((option: any) => option._id));
 
     // Save the updated Voting

@@ -9,6 +9,9 @@ import {
 export class CreateVotingOptionBody {
   @IsString()
   public text: string = '';
+  @IsString()
+  @IsOptional()
+  public thumbnail?: string = '';
 }
 
 // For the entire voting
