@@ -4,8 +4,34 @@ import UserVote from '../models/UserVote';
 import { BadRequestError } from 'routing-controllers';
 
 export class VotingService {
-  public async getAllVotings(): Promise<any> {
-    return await Voting.find().populate('votingOptions').exec();
+  public async getAllVotings(userId: string): Promise<any> {
+    const votings = await Voting.find()
+      .sort({ createdAt: -1 })
+      .populate('votingOptions')
+      .exec();
+
+    const votingsWithVotedLabel = await Promise.all(
+      votings.map(async (voting) => {
+        const userVote = await UserVote.findOne({
+          user: userId,
+          voting: voting._id,
+        });
+        return {
+          ...voting.toObject(), // Convert the Mongoose Document to a plain JavaScript object
+          isVoted: !!userVote, // The !! operator converts userVote to a boolean (true if exists, false if not)
+        };
+      })
+    );
+
+    return votingsWithVotedLabel;
+  }
+  public async findVotingById(votingId: string): Promise<any> {
+    return await Voting.findById(votingId).exec();
+  }
+  public async findVotingOptionById(
+    votingOptionId: string
+  ): Promise<any> {
+    return await VotingOption.findById(votingOptionId).exec();
   }
   async createVoting(votingData: any): Promise<any> {
     const existingVoting = await Voting.findOne({
@@ -118,6 +144,29 @@ export class VotingService {
 
     // Save the updated Voting
     return await existingVoting.save();
+  }
+
+  async submitUserVote(
+    userId: string,
+    votingId: string,
+    votingOptionId: string
+  ): Promise<any> {
+    // Check for an existing vote
+    const existingVote = await UserVote.findOne({
+      user: userId,
+      voting: votingId,
+    });
+    if (existingVote) {
+      throw new Error('User has already voted in this voting.');
+    }
+
+    const userVote = new UserVote({
+      user: userId,
+      voting: votingId,
+      votingOption: votingOptionId,
+    });
+
+    return await userVote.save();
   }
 
   async deleteVoting(votingId: string): Promise<any> {

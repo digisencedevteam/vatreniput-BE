@@ -27,3 +27,11 @@ export class CreateVotingBody {
   @ArrayMinSize(1)
   public votingOptions: CreateVotingOptionBody[] = [];
 }
+
+export class SubmitVote {
+  @IsString()
+  public votingId: string = '';
+
+  @IsString()
+  public votingOptionId: string = '';
+}

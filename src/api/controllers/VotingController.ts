@@ -9,11 +9,16 @@ import {
   BadRequestError,
   Authorized,
   Get,
+  CurrentUser,
 } from 'routing-controllers';
 import { Response } from 'express';
 
 import { VotingService } from '../services/VotingService'; // Replace with your actual path
-import { CreateVotingBody } from './requests/VotingRequests';
+import {
+  CreateVotingBody,
+  SubmitVote,
+} from './requests/VotingRequests';
+import { UserType } from '../../types';
 
 @JsonController('/votings')
 export class VotingController {
@@ -23,9 +28,14 @@ export class VotingController {
   }
   @Authorized()
   @Get('/')
-  public async getAllVotings(@Res() res: Response): Promise<any> {
+  public async getAllVotings(
+    @CurrentUser({ required: true }) user: UserType,
+    @Res() res: Response
+  ): Promise<any> {
     try {
-      const votings = await this.votingService.getAllVotings();
+      const votings = await this.votingService.getAllVotings(
+        user._id
+      );
       return res.json(votings);
     } catch (error) {
       console.log(error);
@@ -46,6 +56,39 @@ export class VotingController {
         votingData
       );
       return res.status(200).json(newVoting);
+    } catch (error: any) {
+      throw new BadRequestError(error.message);
+    }
+  }
+
+  @Authorized()
+  @Post('/vote')
+  public async vote(
+    @CurrentUser({ required: true }) user: UserType,
+    @Body() body: SubmitVote,
+    @Res() res: Response
+  ) {
+    try {
+      const { votingId, votingOptionId } = body;
+      const voting = await this.votingService.findVotingById(
+        votingId
+      );
+      if (!voting) {
+        throw new BadRequestError('Wrong voting ID provided!');
+      }
+      const votingOpttion =
+        await this.votingService.findVotingOptionById(votingOptionId);
+      if (!votingOpttion) {
+        throw new BadRequestError('Wrong voting option ID provided!');
+      }
+      await this.votingService.submitUserVote(
+        user._id,
+        votingId,
+        votingOptionId
+      );
+      return res
+        .status(200)
+        .json({ message: 'Voting submitted successfully' });
     } catch (error: any) {
       throw new BadRequestError(error.message);
     }
