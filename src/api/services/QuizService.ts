@@ -105,7 +105,7 @@ export class QuizService {
         .sort({ createdAt: -1 }) // Sort by most recent
         .skip(skip)
         .limit(limit)
-        .select('title thumbnail availableUntil')
+        .select('title thumbnail availableUntil createdAt')
         .lean(),
       Quiz.countDocuments({
         _id: { $nin: resolvedQuizIds },

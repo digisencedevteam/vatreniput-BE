@@ -7,6 +7,7 @@ export interface User extends Document {
   firstName: string;
   lastName: string;
   photoURL: string;
+  role: 'admin' | 'regular';
   album: typeof Schema.Types.ObjectId;
 }
 
@@ -34,6 +35,10 @@ const userSchema = new Schema<User>({
     type: String,
     required: false,
     unique: false,
+  },
+  role: {
+    type: String,
+    required: false,
   },
   photoURL: {
     type: String,

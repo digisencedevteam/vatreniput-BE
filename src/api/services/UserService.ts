@@ -31,6 +31,7 @@ export class UserService {
       username,
       firstName,
       lastName,
+      role: 'regular',
     });
 
     // Save the user to the database
