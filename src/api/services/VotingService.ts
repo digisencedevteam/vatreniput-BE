@@ -2,6 +2,7 @@ import Voting from '../models/Voting';
 import VotingOption from '../models/VotingOption';
 import UserVote from '../models/UserVote';
 import { BadRequestError } from 'routing-controllers';
+import mongoose from 'mongoose';
 
 export class VotingService {
   public async getAllVotings(userId: string): Promise<any> {
@@ -27,6 +28,13 @@ export class VotingService {
   }
   public async findVotingById(votingId: string): Promise<any> {
     return await Voting.findById(votingId).exec();
+  }
+  public async findVotingByIdWithOptions(
+    votingId: string
+  ): Promise<any> {
+    return await Voting.findById(votingId)
+      .populate('votingOptions')
+      .exec();
   }
   public async findVotingOptionById(
     votingOptionId: string
@@ -167,6 +175,49 @@ export class VotingService {
     });
 
     return await userVote.save();
+  }
+
+  async getVotingResults(votingId: mongoose.Types.ObjectId) {
+    const votingResults = await UserVote.aggregate([
+      { $match: { voting: votingId } },
+      {
+        $lookup: {
+          from: 'votingoptions', // the name of the VotingOption collection
+          localField: 'votingOption',
+          foreignField: '_id',
+          as: 'optionDetails',
+        },
+      },
+      { $unwind: '$optionDetails' },
+      {
+        $group: {
+          _id: '$votingOption',
+          count: { $sum: 1 },
+          text: { $first: '$optionDetails.text' },
+          thumbnail: { $first: '$optionDetails.thumbnail' }, // Added this line
+        },
+      },
+    ]);
+
+    const totalVotes = votingResults.reduce(
+      (acc, curr) => acc + curr.count,
+      0
+    );
+
+    const votingResultsWithPercentage = votingResults.map(
+      (result) => ({
+        votingOptionId: result._id,
+        votingOptionText: result.text,
+        votingOptionThumbnail: result.thumbnail, // Added this line
+        count: result.count,
+        percentage: ((result.count / totalVotes) * 100).toFixed(2),
+      })
+    );
+
+    return {
+      totalVotes,
+      results: votingResultsWithPercentage,
+    };
   }
 
   async deleteVoting(votingId: string): Promise<any> {

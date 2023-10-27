@@ -19,6 +19,7 @@ import {
   SubmitVote,
 } from './requests/VotingRequests';
 import { UserType } from '../../types';
+import mongoose from 'mongoose';
 
 @JsonController('/votings')
 export class VotingController {
@@ -43,6 +44,41 @@ export class VotingController {
         .status(500)
         .json({ error: 'An error occurred while fetching votings.' });
     }
+  }
+
+  @Authorized()
+  @Get('/:votingId')
+  public async getVotingDetails(
+    @CurrentUser({ required: true }) user: UserType,
+    @Res() res: Response,
+    @Param('votingId') votingId: string
+  ): Promise<any> {
+    try {
+      const voting =
+        await this.votingService.findVotingByIdWithOptions(votingId);
+      if (!voting) {
+        throw new BadRequestError('Voting not found!');
+      }
+      return res.json(voting);
+    } catch (error) {
+      console.log(error);
+      return res
+        .status(500)
+        .json({ error: 'An error occurred while fetching votings.' });
+    }
+  }
+
+  @Authorized()
+  @Get('/:votingId/results')
+  async getResults(
+    @Res() res: Response,
+    @Param('votingId') votingId: string
+  ) {
+    const results = await this.votingService.getVotingResults(
+      new mongoose.Types.ObjectId(votingId)
+    );
+    return res.json(results);
+    // Add your logic here to also fetch and include details about the voting itself
   }
 
   @Authorized()
