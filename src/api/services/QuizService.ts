@@ -124,6 +124,7 @@ export class QuizService {
         title: unresolvedQuiz.title,
         thumbnail: unresolvedQuiz.thumbnail,
         availableUntil: unresolvedQuiz.availableUntil,
+        createdAt: unresolvedQuiz.createdAt,
         status,
       };
       formattedQuizzes.push(formatted);
