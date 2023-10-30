@@ -18,8 +18,8 @@ export class AlbumService {
   }
 
   public async validateOneByCode(code: string) {
-    const album = await Album.findOne({ code });
-    if (!album || album.owner) {
+    const album = await Album.findOne({ code }).exec();
+    if (!album || !!album.owner) {
       return false;
     }
     return true;

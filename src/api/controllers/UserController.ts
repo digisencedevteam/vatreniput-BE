@@ -55,6 +55,11 @@ export default class UserController {
     if (!user) {
       throw new Error('Invalid username or password');
     }
+    if (!user.isEmailVerified) {
+      throw new Error(
+        'Molimo vas potvrdite svoj email kako bi pristupili aplikaciji.'
+      );
+    }
 
     // Verify the password
     const isPasswordValid = await this.authService.verifyPassword(

@@ -7,6 +7,8 @@ export interface User extends Document {
   firstName: string;
   lastName: string;
   photoURL: string;
+  isEmailVerified: boolean;
+  verificationToken: string;
   role: 'admin' | 'regular';
   album: typeof Schema.Types.ObjectId;
 }
@@ -44,6 +46,15 @@ const userSchema = new Schema<User>({
     type: String,
     required: false,
     unique: false,
+  },
+  isEmailVerified: {
+    type: Boolean,
+    required: true,
+    default: false,
+  },
+  verificationToken: {
+    type: String,
+    required: false,
   },
   album: { type: Schema.Types.ObjectId, ref: 'Album' },
 });

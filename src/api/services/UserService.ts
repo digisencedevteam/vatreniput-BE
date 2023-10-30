@@ -2,6 +2,10 @@ import bcrypt from 'bcrypt';
 import User from '../models/User';
 import { UserType } from '../../types';
 import Album from '../models/Album';
+import {
+  generateSecureToken,
+  sendVerificationEmail,
+} from '../helpers/helper';
 
 export class UserService {
   public async registerUser(data: UserType, code: string) {
@@ -24,10 +28,16 @@ export class UserService {
     const hashedPassword =
       password && (await bcrypt.hash(password, 10));
 
+    // send verification email
+    const emailVerificationToken = await generateSecureToken(16);
+    await sendVerificationEmail(email, emailVerificationToken);
+
     // Create a new user
     const newUser = new User({
       email,
       password: hashedPassword,
+      isEmailVerified: false,
+      verificationToken: emailVerificationToken,
       username,
       firstName,
       lastName,
@@ -45,6 +55,16 @@ export class UserService {
 
   public async getUserByEmail(email: string): Promise<any> {
     const user = await User.findOne({ email });
+    return user;
+  }
+
+  public async getUserByVerificationToken(
+    token: string
+  ): Promise<any> {
+    const user = await User.findOne({
+      verificationToken: token,
+    }).exec();
+
     return user;
   }
 

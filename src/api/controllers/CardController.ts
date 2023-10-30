@@ -129,7 +129,7 @@ export default class CardController {
     const cardStats = await this.cardService.getCardStats(user.id);
     const topEvents = await this.eventService.getTopEvents(
       user._id,
-      2
+      5
     );
     return {
       ...cardStats,

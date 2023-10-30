@@ -4,6 +4,8 @@ const sgMail = require('@sendgrid/mail');
 // Define the Mailchimp list ID or audience ID
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const sendgridEmailTemplateId = 'd-fb9e3fc9047d4c31b31c9608a7934c9b';
+const sendgridEmailTemplateIdEmailConfirm =
+  'd-4ecac326f754462f943110a79a4fb640';
 
 /**
  * Generate a secure random token.
@@ -32,7 +34,7 @@ export async function sendPasswordResetEmail(
 ) {
   const msg = {
     to: email,
-    from: 'antonio@digisence.agency',
+    from: 'david.kraljic@digisence.agency',
     templateId: sendgridEmailTemplateId,
     dynamicTemplateData: {
       resetLink: `${backendAppLink}/reset-password/${token}`,
@@ -42,7 +44,27 @@ export async function sendPasswordResetEmail(
   try {
     await sgMail.send(msg);
     console.log('Password reset email sent successfully.');
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Error sending password reset email:', error);
+  }
+}
+
+export async function sendVerificationEmail(
+  email: string,
+  verificationToken: string
+) {
+  const msg = {
+    to: email,
+    from: 'david.kraljic@digisence.agency',
+    templateId: sendgridEmailTemplateIdEmailConfirm,
+    dynamicTemplateData: {
+      resetLink: `${backendAppLink}/auth/verify-email?token=${verificationToken}`,
+    },
+  };
+  try {
+    await sgMail.send(msg);
+    console.log('Email sent successfully.');
+  } catch (error: any) {
     console.error('Error sending password reset email:', error);
   }
 }
@@ -77,4 +99,10 @@ export const backendAppLink = atEnv({
   defaultValue: 'http://localhost:3001',
   development: 'https://vatreniput-be-8083fcaa25e5.herokuapp.com',
   production: 'https://vatreniput-be-8083fcaa25e5.herokuapp.com',
+});
+
+export const frontendAppLink = atEnv({
+  defaultValue: 'http://localhost:3000/',
+  development: 'https://vatreniput-fe.vercel.app/',
+  production: 'https://vatreniput-fe.vercel.app/',
 });
