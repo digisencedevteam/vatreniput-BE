@@ -119,9 +119,15 @@ export default class QuizController {
     const isQuizzResolved =
       await this.quizService.checkIfQuizResolved(userId, quizId);
 
+    const quizzAnswers = await this.quizService.getAnswers(
+      userId,
+      quizId
+    );
+
     return res.json({
       ...quizDetails,
       status: quizStatus ? quizStatus : null,
+      quizzAnswers: quizzAnswers ? quizzAnswers : null,
       isResolved: !!isQuizzResolved && !!isQuizzResolved.length,
     });
   }
@@ -150,6 +156,33 @@ export default class QuizController {
     return result;
   }
 
+  @Authorized()
+  @Post('/update-answer')
+  async updateAnswer(
+    @CurrentUser({ required: true }) user: UserType,
+    @Body()
+    {
+      quizId,
+      questionId,
+      selectedOption,
+      isCorrect,
+    }: {
+      quizId: string;
+      questionId: string;
+      selectedOption: number;
+      isCorrect: boolean;
+    },
+    @Res() res: Response
+  ) {
+    const updatedAnswer = await this.quizService.updateQuizAnswer(
+      user._id,
+      quizId,
+      questionId,
+      selectedOption,
+      isCorrect
+    );
+    return res.json(updatedAnswer);
+  }
   @Authorized()
   @Post('/new')
   public async createQuizWithQuestions(

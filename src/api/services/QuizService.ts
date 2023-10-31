@@ -5,7 +5,10 @@ import { Service } from 'typedi';
 import Quiz from '../models/Quiz';
 import QuizResult from '../models/QuizResult';
 import QuizStatus from '../models/QuizStatus';
+import UserQuizzAnswer from '../models/UserQuizzAnswer';
 import mongoose from 'mongoose';
+import { ObjectId } from 'bson';
+
 import {
   CreateQuestionBody,
   CreateQuizBody,
@@ -167,6 +170,9 @@ export class QuizService {
 
       // Delete the QuizStatus document for this user and quiz
       await QuizStatus.deleteOne({ userId, quizId });
+
+      // Delete user quizz answers
+      await UserQuizzAnswer.deleteMany({ userId, quizId });
 
       // Save the QuizResult to the database
       await quizResult.save();
@@ -364,6 +370,47 @@ export class QuizService {
     };
 
     await QuizStatus.create(status);
+  }
+
+  public async updateQuizAnswer(
+    userId: string,
+    quizId: string,
+    questionId: string,
+    selectedOption: number,
+    isCorrect: boolean
+  ) {
+    const existingStatus = await QuizStatus.findOne({
+      userId,
+      quizId,
+    });
+    if (!existingStatus) {
+      throw new BadRequestError('This quiz is not in progress');
+    }
+    const quizz = await Quiz.findById(quizId);
+    if (!existingStatus) {
+      throw new BadRequestError('This quiz is not found');
+    }
+    const questionsOfQuizz = quizz?.questions.map((question) =>
+      question.toString()
+    );
+    const questionIsInQuizz =
+      questionsOfQuizz && questionsOfQuizz.includes(questionId);
+    if (!questionIsInQuizz) {
+      throw new BadRequestError(
+        'This question is not found in that quizz'
+      );
+    }
+    const answer = await UserQuizzAnswer.findOneAndUpdate(
+      { userId, quizId, questionId },
+      { selectedOption, isCorrect },
+      { upsert: true, new: true }
+    );
+    return answer;
+  }
+
+  public async getAnswers(userId: string, quizId: string) {
+    const answers = await UserQuizzAnswer.find({ userId, quizId });
+    return answers;
   }
 
   public async deleteQuiz(quizId: string): Promise<void> {
