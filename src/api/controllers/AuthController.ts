@@ -4,7 +4,6 @@ import {
   JsonController,
   Authorized,
   CurrentUser,
-  Redirect,
   QueryParam,
   Res,
 } from 'routing-controllers';
@@ -43,7 +42,7 @@ export default class AuthController {
     await user.save();
 
     // Redirect to frontend email verification success page
-    response.redirect(frontendAppLink);
+    response.redirect(frontendAppLink + 'email-verified');
   }
 
   @Get('/user')
