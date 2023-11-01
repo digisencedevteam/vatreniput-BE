@@ -1,10 +1,9 @@
 import { BadRequestError } from 'routing-controllers';
 import Album from '../models/Album';
-import mongoose, { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import CardTemplate from '../models/CardTemplate';
 import PrintedCard from '../models/PrintedCard';
 import UserCard from '../models/UserCard';
-import { ObjectId } from 'mongodb';
 
 export class CardService {
   public async getCardWithEventDetails(cardId: string) {
@@ -153,6 +152,28 @@ export class CardService {
       cards: cards.map((card) => card.toObject()),
       totalCount,
     };
+  }
+
+  public async getRecentCardsFromAlbum(userId: string) {
+    // Fetch user's album
+    const album = await Album.findOne({ owner: userId }).populate(
+      'cards'
+    );
+    const userCards = album?.cards || [];
+    const printedCardIds = userCards.map(
+      (uc: any) => uc.printedCardId
+    );
+    const printetCardsNew = await PrintedCard.find({
+      _id: { $in: printedCardIds },
+    });
+    const newIds = printetCardsNew.map((uc: any) => uc.cardTemplate);
+
+    // Fetch paginated cards
+    const cards = await CardTemplate.find({
+      _id: { $in: newIds },
+    }).limit(8);
+
+    return cards;
   }
 
   public async getCardsForEvent(

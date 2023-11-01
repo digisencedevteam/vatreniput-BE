@@ -133,7 +133,6 @@ export default class CardController {
   }
 
   @Get('/stats/dashboard')
-  @Get('/stats/dashboard')
   @Authorized()
   async getCardStatsForDashboard(
     @CurrentUser({ required: true }) user: UserType,
@@ -143,9 +142,10 @@ export default class CardController {
       const userId = user._id;
 
       // Execute all asynchronous operations in parallel
-      const [cardStats, topEvents, quizzes, votings] =
+      const [cardStats, cards, topEvents, quizzes, votings] =
         await Promise.all([
           this.cardService.getCardStats(userId),
+          this.cardService.getRecentCardsFromAlbum(userId),
           this.eventService.getTopEvents(userId),
           this.quizService.getRecentQuizzes(userId),
           this.votingService.getRecentUnvotedVotings(userId),
@@ -153,6 +153,7 @@ export default class CardController {
 
       const result = {
         ...cardStats,
+        cards,
         topEvents,
         quizzes,
         votings, // Fixed typo from 'votingsÍ' to 'votings'
@@ -161,11 +162,9 @@ export default class CardController {
       return res.json(result);
     } catch (error) {
       console.error(error);
-      return res
-        .status(500)
-        .json({
-          error: 'An error occurred while fetching dashboard stats',
-        });
+      return res.status(500).json({
+        error: 'An error occurred while fetching dashboard stats',
+      });
     }
   }
 }
