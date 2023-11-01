@@ -138,6 +138,25 @@ export class QuizService {
       unresolvedQuizzes: formattedQuizzes, // Array of unresolved quizzes
     };
   }
+  public async getRecentQuizzes(userId: string) {
+    // Find quizzes that do not have corresponding quiz results for the user
+    const resolvedQuizResults = await QuizResult.find({
+      userId,
+    }).lean();
+    const resolvedQuizIds = resolvedQuizResults.map(
+      (result: any) => result.quizId
+    );
+    const quizzes = await Quiz.find({
+      _id: { $nin: resolvedQuizIds },
+      availableUntil: { $gte: new Date() }, // Filter out quizzes where availableUntil is greater than or equal to today's date
+    })
+      .sort({ createdAt: -1 }) // Sort by most recent
+      .select('_id title thumbnail availableUntil createdAt')
+      .limit(2)
+      .lean();
+
+    return quizzes;
+  }
 
   public async submitQuizResult(
     userId: string,

@@ -18,10 +18,7 @@ export class EventService {
       _id: event._id.toString(),
     }));
   }
-  public async getTopEvents(
-    userId: string,
-    limit: number
-  ): Promise<any[]> {
+  public async getTopEvents(userId: string): Promise<any[]> {
     try {
       // Fetch the events with the most collected cards by the user
       // Aggregate to find the events with the most collected cards by the user
@@ -53,6 +50,7 @@ export class EventService {
             location: 1,
             year: 1,
             description: 1,
+            numberOfCollected: { $size: '$userCards' },
             percentageCollected: {
               $multiply: [
                 {
@@ -70,9 +68,6 @@ export class EventService {
           $sort: {
             percentageCollected: -1,
           },
-        },
-        {
-          $limit: limit,
         },
       ]).exec();
       return events;

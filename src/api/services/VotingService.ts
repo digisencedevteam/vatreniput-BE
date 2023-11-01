@@ -26,6 +26,29 @@ export class VotingService {
 
     return votingsWithVotedLabel;
   }
+  public async getRecentUnvotedVotings(userId: string): Promise<any> {
+    // Step 1: Fetch all votings and sort them by createdAt in descending order
+    const allVotings = await Voting.find()
+      .sort({ createdAt: -1 })
+      .select('_id title thumbnail createdAt')
+      .exec();
+
+    // Step 2: Filter out the votings that are already voted by the user
+    const unvotedVotings = await Promise.all(
+      allVotings.filter(async (voting) => {
+        const userVote = await UserVote.findOne({
+          user: userId,
+          voting: voting._id,
+        });
+        return !userVote; // Return true if userVote does not exist, i.e., the user has not voted
+      })
+    );
+
+    // Step 3: Limit the result to the 2 most recent unvoted votings
+    const recentUnvotedVotings = unvotedVotings.slice(0, 2);
+
+    return recentUnvotedVotings;
+  }
   public async findVotingById(votingId: string): Promise<any> {
     return await Voting.findById(votingId).exec();
   }

@@ -10,18 +10,25 @@ import {
   Patch,
   Res,
 } from 'routing-controllers';
+import { Response } from 'express';
 import { UserType } from '../../types/index';
 import { CardService } from '../services/CardService';
 import { EventService } from '../services/EventService';
+import { QuizService } from '../services/QuizService';
+import { VotingService } from '../services/VotingService';
 
 @JsonController('/card')
 export default class CardController {
   private cardService: CardService;
   private eventService: EventService;
+  private quizService: QuizService;
+  private votingService: VotingService;
 
   constructor() {
     this.cardService = new CardService();
     this.eventService = new EventService();
+    this.quizService = new QuizService();
+    this.votingService = new VotingService();
   }
 
   @Patch('/add')
@@ -92,7 +99,7 @@ export default class CardController {
   @Authorized()
   async getCardsForEvent(
     @Param('eventId') eventId: string,
-    @CurrentUser() user: any,
+    @CurrentUser({ required: true }) user: UserType,
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 10
   ) {
@@ -107,7 +114,7 @@ export default class CardController {
     const { cards, totalCount } =
       await this.cardService.getCardsForEvent(
         eventId,
-        user.id,
+        user._id,
         Number(page),
         Number(limit)
       );
@@ -119,21 +126,46 @@ export default class CardController {
 
   @Get('/stats/all')
   @Authorized()
-  async getCardStats(@CurrentUser() user: any) {
-    return await this.cardService.getCardStats(user.id);
+  async getCardStats(
+    @CurrentUser({ required: true }) user: UserType
+  ) {
+    return await this.cardService.getCardStats(user._id);
   }
 
   @Get('/stats/dashboard')
+  @Get('/stats/dashboard')
   @Authorized()
-  async getCardStatsForDashboard(@CurrentUser() user: any) {
-    const cardStats = await this.cardService.getCardStats(user.id);
-    const topEvents = await this.eventService.getTopEvents(
-      user._id,
-      5
-    );
-    return {
-      ...cardStats,
-      topEvents,
-    };
+  async getCardStatsForDashboard(
+    @CurrentUser({ required: true }) user: UserType,
+    @Res() res: Response
+  ) {
+    try {
+      const userId = user._id;
+
+      // Execute all asynchronous operations in parallel
+      const [cardStats, topEvents, quizzes, votings] =
+        await Promise.all([
+          this.cardService.getCardStats(userId),
+          this.eventService.getTopEvents(userId),
+          this.quizService.getRecentQuizzes(userId),
+          this.votingService.getRecentUnvotedVotings(userId),
+        ]);
+
+      const result = {
+        ...cardStats,
+        topEvents,
+        quizzes,
+        votings, // Fixed typo from 'votingsÍ' to 'votings'
+      };
+
+      return res.json(result);
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({
+          error: 'An error occurred while fetching dashboard stats',
+        });
+    }
   }
 }
