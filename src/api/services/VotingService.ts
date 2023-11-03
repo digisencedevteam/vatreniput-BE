@@ -68,7 +68,7 @@ export class VotingService {
       voting: voting._id,
     });
     return {
-      ...voting,
+      ...voting.toObject(),
       isVoted: !!userVote,
     };
   }
