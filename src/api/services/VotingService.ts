@@ -53,11 +53,24 @@ export class VotingService {
     return await Voting.findById(votingId).exec();
   }
   public async findVotingByIdWithOptions(
-    votingId: string
+    votingId: string,
+    userId: string
   ): Promise<any> {
-    return await Voting.findById(votingId)
+    const voting = await Voting.findById(votingId)
       .populate('votingOptions')
       .exec();
+
+    if (!voting) {
+      throw new BadRequestError('Voting not found!');
+    }
+    const userVote = await UserVote.findOne({
+      user: userId,
+      voting: voting._id,
+    });
+    return {
+      ...voting,
+      isVoted: !!userVote,
+    };
   }
   public async findVotingOptionById(
     votingOptionId: string

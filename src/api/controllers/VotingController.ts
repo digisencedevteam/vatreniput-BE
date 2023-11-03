@@ -55,7 +55,10 @@ export class VotingController {
   ): Promise<any> {
     try {
       const voting =
-        await this.votingService.findVotingByIdWithOptions(votingId);
+        await this.votingService.findVotingByIdWithOptions(
+          votingId,
+          user._id
+        );
       if (!voting) {
         throw new BadRequestError('Voting not found!');
       }
