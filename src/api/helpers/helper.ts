@@ -58,7 +58,7 @@ export async function sendVerificationEmail(
     from: 'david.kraljic@digisence.agency',
     templateId: sendgridEmailTemplateIdEmailConfirm,
     dynamicTemplateData: {
-      resetLink: `${frontendAppLink}auth/verify-email?token=${verificationToken}`,
+      resetLink: `${backendAppLink}/auth/verify-email?token=${verificationToken}`,
     },
   };
   try {
