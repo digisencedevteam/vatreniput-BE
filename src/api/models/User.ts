@@ -9,6 +9,7 @@ export interface User extends Document {
   photoURL: string;
   isEmailVerified: boolean;
   verificationToken: string;
+  refreshToken: string;
   role: 'admin' | 'regular';
   album: typeof Schema.Types.ObjectId;
 }
