@@ -90,6 +90,7 @@ export default class AuthController {
     const accessToken = await this.authService.generateAccessToken(user._id);
     const refreshToken = await this.authService.generateRefreshToken(user._id);
     const cookieOptions: CookieOptions = {
+      httpOnly: true,
       expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'none',
@@ -101,6 +102,7 @@ export default class AuthController {
   @Post('/logout')
   async logout(@Res() response: Response) {
   response.clearCookie('refreshToken', {
+    httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'none',
   });
