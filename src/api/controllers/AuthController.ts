@@ -92,7 +92,7 @@ export default class AuthController {
     const cookieOptions: CookieOptions = {
       httpOnly: true,
       expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.BACKEND_APP_ENV === 'development',
       sameSite: 'none',
     };
     response.cookie('refreshToken', refreshToken, cookieOptions);
@@ -103,7 +103,7 @@ export default class AuthController {
   async logout(@Res() response: Response) {
   response.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.BACKEND_APP_ENV === 'development',
     sameSite: 'none',
   });
   return response.sendStatus(200);
