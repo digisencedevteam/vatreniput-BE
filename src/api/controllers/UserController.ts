@@ -89,8 +89,8 @@ export default class UserController {
     response.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       expires: oneHourLater,
-      secure: process.env.NODE_ENV === 'production', 
-      sameSite: 'strict' 
+      secure: process.env.BACKEND_APP_ENV === 'development', 
+      sameSite: 'none' 
     });   
 
     return { accessToken, user: returnedUser };
