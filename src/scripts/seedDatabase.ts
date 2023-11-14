@@ -17,6 +17,8 @@ import mongoose, { Types } from 'mongoose';
 import Quiz from '../api/models/Quiz';
 import Question from '../api/models/Question';
 import QuizResult from '../api/models/QuizResult';
+import Voting from '../api/models/Voting';
+import VotingOption from '../api/models/VotingOption';
 
 dotenv.config();
 
@@ -32,10 +34,28 @@ const seedUsers = async () => {
   // Example data for a user
   const userData = [
     {
-      email: 'antonio@test.com',
+      email: 'admin@test.com',
       password: hashedPassword,
-      username: 'testerantonio',
-      // ... other fields
+      username: 'admin123',
+      firstName: 'Admin',
+      lastName: 'Administrator',
+      role: 'admin',
+    },
+    {
+      email: 'matej@mail.com',
+      password: hashedPassword,
+      username: 'matejko',
+      firstName: 'Matej',
+      lastName: 'Petric',
+      reole: 'regular',
+    },
+    {
+      email: 'david@test.com',
+      password: hashedPassword,
+      username: 'david123',
+      firstName: 'David',
+      lastName: 'Kraljic',
+      role: 'regular',
     },
     // ... other users
   ];
@@ -45,7 +65,7 @@ const seedUsers = async () => {
 };
 
 const seedAlbums = async () => {
-  const user = await User.findOne({ username: 'testerantonio' });
+  const user = await User.findOne({ username: 'admin123' });
 
   // Example data for an album
   const albumData = [
@@ -62,7 +82,7 @@ const seedAlbums = async () => {
 };
 
 const seedQuizzes = async () => {
-  const user = await User.findOne({ username: 'testerantonio' });
+  const user = await User.findOne({ username: 'admin123' });
   const questionData = [
     {
       text: 'Koji hrvatski nogometaš je poznat kao "Vatreni Maestro"?',
@@ -112,7 +132,6 @@ const seedQuizzes = async () => {
   const questionIds = questions.map((question) => question._id);
   const date = new Date('2023-12-17T03:24:00');
   const date1 = new Date('2023-12-01T13:24:00');
-  const date2 = new Date('2023-12-31T23:59:00');
 
   const quizData = [
     {
@@ -193,6 +212,161 @@ const seedEvents = async () => {
   ];
 
   await Event.insertMany(eventData);
+  console.log('Events seeded successfully!');
+};
+
+const seedVotings = async () => {
+  // insert voting options
+  const optionsDataVratari = [
+    {
+      text: 'Danijel Subašić',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000016132_556_400_cut.jpg',
+    },
+    {
+      text: 'Dominik Livaković',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000044714_0_380.png',
+    },
+    {
+      text: 'Lovre Kalinić',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000040898_556_400_cut.jpg',
+    },
+    {
+      text: 'Stipe Pletikosa',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000004795_556_400_cut.jpg',
+    },
+    {
+      text: 'Dražen Ladić',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000001199_556_400_cut.jpg',
+    },
+    {
+      text: 'Ivica Ivušić',
+      thumbnail:
+        'https://static.jutarnji.hr/images/slike/2021/09/08/o_7318569_1280.jpg',
+    },
+  ];
+
+  const optionsDataBraniči = [
+    {
+      text: 'Slaven Bilić',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000006491_556_400_cut.jpg',
+    },
+    {
+      text: 'Domagoj Vida',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000039893_800_0.jpg',
+    },
+    {
+      text: 'Dejan Lovren',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000036132_800_0.jpg',
+    },
+    {
+      text: 'Joško Gvardiol',
+      thumbnail:
+        'https://hns.family/files/images/crops/0038/38783_crop2.jpg',
+    },
+    {
+      text: 'Borna Sosa',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000028445_800_0.jpg',
+    },
+    {
+      text: 'Josip Šutalo',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000036907_800_0.jpg',
+    },
+  ];
+
+  const optionsDataNapad = [
+    {
+      text: 'Davor Šuker',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000001198_556_400_cut.jpg',
+    },
+    {
+      text: 'Ivica Olić',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000004782_556_400_cut.jpg',
+    },
+    {
+      text: 'Eduardo Da Silva',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000004774_556_400_cut.jpg',
+    },
+    {
+      text: 'Mario Mandžukić',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000016176_556_400_cut.jpg',
+    },
+    {
+      text: 'Bruno Petković',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000044711_0_380.png',
+    },
+    {
+      text: 'Marko Livaja',
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000044725_0_380.png',
+    },
+  ];
+  const votingOptionsVratari = await VotingOption.insertMany(
+    optionsDataVratari
+  );
+  const votingOptionsBraniči = await VotingOption.insertMany(
+    optionsDataBraniči
+  );
+  const votingOptionsNapad = await VotingOption.insertMany(
+    optionsDataNapad
+  );
+  const vratariIds = votingOptionsVratari.map(
+    (voting: any) => voting._id
+  );
+  const braničIds = votingOptionsBraniči.map(
+    (voting: any) => voting._id
+  );
+  const napadIds = votingOptionsNapad.map(
+    (voting: any) => voting._id
+  );
+  const date2 = new Date('2023-12-31T23:59:00');
+  // Example data for voptings
+  const votingsData = [
+    {
+      title: 'Najbolji golman reprezentacije?',
+      description:
+        'Izaberi najboljeg među vratnicama hrvatske nogometne reprezentacije',
+      votingOptions: vratariIds,
+      expiresAt: date2,
+      thumbnail:
+        'https://zadarskilist.novilist.hr/wp-content/uploads/2022/12/dominik-livakovic-4-792x495.jpg',
+    },
+    {
+      title: 'Najbolji obrambeni reprezentacije?',
+      description:
+        'Izaberi najboljeg obrambenog igrača hrvatske nogometne reprezentacije',
+      votingOptions: braničIds,
+      expiresAt: date2,
+      thumbnail:
+        'https://i2-prod.football.london/incoming/article25719401.ece/ALTERNATES/s1200c/0_GettyImages-1447992068.jpg',
+    },
+    {
+      title: 'Najbolji napadač reprezentacije?',
+      description:
+        'Izaberi najboljeg napadača hrvatske nogometne reprezentacije',
+      votingOptions: napadIds,
+      expiresAt: date2,
+      thumbnail:
+        'https://hns.family/files/images/_resized/0000001198_556_400_cut.jpg',
+    },
+    // ... other events
+  ];
+
+  await Voting.insertMany(votingsData);
   console.log('Events seeded successfully!');
 };
 
@@ -623,7 +797,7 @@ const seedPrintedCards = async () => {
     title: 'Luka Modrić',
   });
 
-  const user = await User.findOne({ username: 'testerantonio' });
+  const user = await User.findOne({ username: 'admin123' });
 
   // Example data for printed cards
   const printedCardsData = [
@@ -992,11 +1166,8 @@ const seedPrintedCards = async () => {
 };
 
 const seedUserCards = async () => {
-  const user = await User.findOne({ username: 'testerantonio' });
+  const user = await User.findOne({ username: 'admin123' });
 
-  const printedCardqrCode2 = await PrintedCard.findOne({
-    qrCode: 'qrCode2',
-  });
   const printedCardqrCode6 = await PrintedCard.findOne({
     qrCode: 'qrCode6',
   });
@@ -1149,13 +1320,14 @@ const seedUserCards = async () => {
 };
 
 const seedAll = async () => {
-  await seedUsers();
-  await seedAlbums();
-  await seedEvents();
-  await seedCardTemplates();
-  await seedPrintedCards();
-  await seedUserCards();
-  await seedQuizzes();
+  // await seedUsers();
+  // await seedAlbums();
+  // await seedEvents();
+  // await seedCardTemplates();
+  // await seedPrintedCards();
+  // await seedUserCards();
+  // await seedQuizzes();
+  await seedVotings();
 
   mongoose.connection.close();
 };
