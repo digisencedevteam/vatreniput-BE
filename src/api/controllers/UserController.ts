@@ -16,6 +16,9 @@ import { AuthService } from '../../auth/AuthService';
 import { UserService } from '../services/UserService';
 import { UserError } from '../errors/UserError';
 import Utils from '../../lib/utils';
+import * as express from 'express';
+
+const REFRESH_TOKEN_EXPIRES = '30d';
 
 @JsonController('/user')
 export default class UserController {
@@ -46,11 +49,12 @@ export default class UserController {
     requestBody: {
       email: string;
       password: string;
-    }
+    },
+    @Res() response: express.Response
+
   ) {
     const { email, password } = requestBody;
 
-    // Check if the user exists
     const user = await this.userService.getUserByEmail(email);
     if (!user) {
       throw new Error('Invalid username or password');
@@ -61,7 +65,6 @@ export default class UserController {
       );
     }
 
-    // Verify the password
     const isPasswordValid = await this.authService.verifyPassword(
       password,
       user.password || ''
@@ -70,12 +73,25 @@ export default class UserController {
       throw new Error('Invalid username or password');
     }
 
-    // Generate an access token
     const accessToken = await this.authService.generateAccessToken(
       user._id
     );
+    const refreshToken = await this.authService.generateRefreshToken(
+      user._id,
+    );
+
     const returnedUser =
       await this.userService.findOneWithoutPassword(user._id);
+
+    let oneHourLater = new Date();
+    oneHourLater.setHours(oneHourLater.getHours() + 1);
+
+    response.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      expires: oneHourLater,
+      secure: process.env.NODE_ENV === 'production', 
+      sameSite: 'strict' 
+    });   
 
     return { accessToken, user: returnedUser };
   }

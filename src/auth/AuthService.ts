@@ -3,14 +3,17 @@ import jwt from 'jsonwebtoken';
 import { Service } from 'typedi';
 import * as express from 'express';
 import User from '../api/models/User';
+import dotenv from 'dotenv';
 
 const ACCESS_TOKEN_EXPIRES = '14d';
 const REFRESH_TOKEN_EXPIRES = '30d';
 
+dotenv.config();
+
 @Service()
 export class AuthService {
-  private readonly accessTokenSecret: string =
-    'your-access-token-secret';
+  private readonly accessTokenSecret: string = process.env.ACCESS_TOKEN_SECRET || 'default-access-token-secret';
+  private readonly refreshTokenSecret: string = process.env.REFRESH_TOKEN_SECRET || 'default-refresh-token-secret';
 
   public async generateAccessToken(userId: string): Promise<string> {
     const accessToken = await jwt.sign(
@@ -21,6 +24,28 @@ export class AuthService {
       }
     );
     return accessToken;
+  }
+
+  public async generateRefreshToken(userId: string): Promise<string | null> {
+    const refreshToken = jwt.sign(
+      { userId },
+      this.refreshTokenSecret,
+      { expiresIn: REFRESH_TOKEN_EXPIRES }
+    );  
+    return refreshToken;
+  }
+
+  public async validateRefreshToken(refreshToken: string): Promise<{ userId: string, exp: number } | null> {
+    try {
+      const payload: any = jwt.verify(refreshToken, this.refreshTokenSecret);
+      const user = await User.findById(payload.userId);
+      if (!user) {
+        return null;
+      }
+      return { userId: payload.userId, exp: payload.exp };
+    } catch (error) {
+      return null;
+    }
   }
 
   public async verifyPassword(

@@ -2,12 +2,22 @@ import 'reflect-metadata';
 import express from 'express';
 import mongoose, { ConnectOptions } from 'mongoose';
 import { useExpressServer } from 'routing-controllers';
-import cors from 'cors';
 import 'dotenv/config';
 import { authorizationChecker } from './auth/authorizationChecker';
 import { currentUserChecker } from './auth/currentUserChecker';
+import cookieParser from 'cookie-parser';
+import { frontendAppLink } from './api/helpers/helper';
 
 const app = express();
+const cors = require('cors');
+
+const corsOptions = {
+  origin: frontendAppLink, 
+  // origin: 'http://localhost:3000',
+  credentials: true, 
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+};
 
 // Connect to MongoDB
 const mongoOptions: ConnectOptions = {};
@@ -26,7 +36,8 @@ mongoose
   });
 console.log('Loading controllers from path: ' + controllerPath);
 
-app.use(cors());
+app.use(cors(corsOptions));
+app.use(cookieParser());
 
 useExpressServer(app, {
   controllers: [controllerPath],
