@@ -102,7 +102,7 @@ export const backendAppLink = atEnv({
 });
 
 export const frontendAppLink = atEnv({
-  defaultValue: 'http://localhost:3000/',
-  development: 'https://vatreniput-fe.vercel.app/',
-  production: 'https://vatreniput-fe.vercel.app/',
+  defaultValue: 'http://localhost:3000',
+  development: 'https://vatreniput-fe.vercel.app',
+  production: 'https://vatreniput-fe.vercel.app',
 });

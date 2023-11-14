@@ -133,4 +133,13 @@ export class UserService {
 
     return false;
   }
+
+  public async updateLastLogin(userId: string): Promise<void> {
+    const updateData = { lastLogin: new Date() };
+    try {
+      await User.findByIdAndUpdate(userId, updateData);
+    } catch (error) {
+      throw new Error('Unable to update last login');
+    }
+  }
 }
