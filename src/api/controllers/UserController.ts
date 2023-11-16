@@ -83,12 +83,9 @@ export default class UserController {
     const returnedUser =
       await this.userService.findOneWithoutPassword(user._id);
 
-    let oneHourLater = new Date();
-    oneHourLater.setHours(oneHourLater.getHours() + 1);
-
     response.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      expires: oneHourLater,
+      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       secure: process.env.BACKEND_APP_ENV === 'development', 
       sameSite: 'none' 
     });   
