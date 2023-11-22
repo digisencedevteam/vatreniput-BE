@@ -86,7 +86,7 @@ export default class UserController {
     response.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      secure: process.env.BACKEND_APP_ENV === 'development', 
+      secure: process.env.BACKEND_APP_ENV !== 'production', 
       sameSite: 'none' 
     });   
 
@@ -153,7 +153,6 @@ export default class UserController {
         );
       }
     }
-
     return await this.userService.updateUser(user._id, body);
   }
 

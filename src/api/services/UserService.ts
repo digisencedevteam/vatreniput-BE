@@ -100,7 +100,6 @@ export class UserService {
     updateData: Partial<UserType>
   ): Promise<any> {
     const user = await User.findOne({ _id: userId });
-
     if (!user) {
       return null;
     }

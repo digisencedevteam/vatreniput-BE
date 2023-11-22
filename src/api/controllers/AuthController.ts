@@ -12,7 +12,6 @@ import {
 } from 'routing-controllers';
 import { UserType } from '../../types/index';
 import { frontendAppLink } from '../helpers/helper';
-import { CookieOptions } from 'express-serve-static-core';
 import { Request, Response } from 'express';
 import { UnauthorizedError } from 'routing-controllers';
 
@@ -73,6 +72,7 @@ export default class AuthController {
     if (!oldRefreshToken) {
       throw new UnauthorizedError('No refresh token provided');
     }
+    try {
     const oldRefreshTokenData = await this.authService.validateRefreshToken(oldRefreshToken);    
     if (!oldRefreshTokenData || typeof oldRefreshTokenData === 'string') {
       throw new UnauthorizedError('Invalid refresh token');    
@@ -89,21 +89,24 @@ export default class AuthController {
     await this.userService.updateLastLogin(user._id);
     const accessToken = await this.authService.generateAccessToken(user._id);
     const refreshToken = await this.authService.generateRefreshToken(user._id);
-    const cookieOptions: CookieOptions = {
+    const cookieOptions = {
       httpOnly: true,
       expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      secure: process.env.BACKEND_APP_ENV === 'development',
-      sameSite: 'none',
+      secure: process.env.BACKEND_APP_ENV !== 'development',
+      sameSite: 'none' as 'none',
     };
     response.cookie('refreshToken', refreshToken, cookieOptions);
     return { accessToken };
+  } catch (error) {
+    throw new UnauthorizedError('Failed to refresh token');
+  }
   }
 
   @Post('/logout')
   async logout(@Res() response: Response) {
   response.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: process.env.BACKEND_APP_ENV === 'development',
+    secure: process.env.BACKEND_APP_ENV !== 'development',
     sameSite: 'none',
   });
   return response.sendStatus(200);

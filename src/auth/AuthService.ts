@@ -39,7 +39,7 @@ export class AuthService {
     try {
       const payload: any = jwt.verify(refreshToken, this.refreshTokenSecret);
       const user = await User.findById(payload.userId);
-      if (!user) {
+      if (!user) {        
         return null;
       }
       return { userId: payload.userId, exp: payload.exp };
