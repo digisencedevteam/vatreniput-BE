@@ -101,8 +101,14 @@ export const backendAppLink = atEnv({
   production: 'https://vatreniput-be-8083fcaa25e5.herokuapp.com',
 });
 
+// export const frontendAppLink = atEnv({
+//   defaultValue: 'http://localhost:3000',
+//   development: 'https://vatreniput-fe.vercel.app',
+//   production: 'https://vatreniput-fe.vercel.app',
+// });
+
 export const frontendAppLink = atEnv({
   defaultValue: 'http://localhost:3000',
-  development: 'https://vatreniput-fe.vercel.app',
-  production: 'https://vatreniput-fe.vercel.app',
+  development: 'https://vatreniput-fe-git-fix-refreshtoken-vatreni-put.vercel.app',
+  production: 'https://vatreniput-fe-git-fix-refreshtoken-vatreni-put.vercel.app',
 });

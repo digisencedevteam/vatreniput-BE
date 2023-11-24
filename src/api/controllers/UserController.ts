@@ -18,8 +18,6 @@ import { UserError } from '../errors/UserError';
 import Utils from '../../lib/utils';
 import * as express from 'express';
 
-const REFRESH_TOKEN_EXPIRES = '30d';
-
 @JsonController('/user')
 export default class UserController {
   private userService: UserService;
@@ -29,6 +27,7 @@ export default class UserController {
     this.userService = new UserService();
     this.authService = new AuthService();
   }
+  
   @Post('/register/:code')
   async register(
     @Param('code') code: string,
@@ -45,44 +44,29 @@ export default class UserController {
 
   @Post('/login')
   async login(
-    @Body()
-    requestBody: {
-      email: string;
-      password: string;
-    },
-    @Res() response: express.Response
-
+  @Body() requestBody: { email: string; password: string; },
+  @Res() response: express.Response
   ) {
-    const { email, password } = requestBody;
+  const { email, password } = requestBody;
 
+  try {
     const user = await this.userService.getUserByEmail(email);
     if (!user) {
-      throw new Error('Invalid username or password');
+      return response.status(401).json({ message: 'Invalid username or password' });
     }
     if (!user.isEmailVerified) {
-      throw new Error(
-        'Molimo vas potvrdite svoj email kako bi pristupili aplikaciji.'
-      );
+      return response.status(403).json({ message: 'Please verify your email to access the application.' });
     }
 
-    const isPasswordValid = await this.authService.verifyPassword(
-      password,
-      user.password || ''
-    );
+    const isPasswordValid = await this.authService.verifyPassword(password, user.password || '');
     if (!isPasswordValid) {
-      throw new Error('Invalid username or password');
+      return response.status(401).json({ message: 'Invalid username or password' });
     }
 
-    const accessToken = await this.authService.generateAccessToken(
-      user._id
-    );
-    const refreshToken = await this.authService.generateRefreshToken(
-      user._id,
-    );
+    const accessToken = await this.authService.generateAccessToken(user._id);
+    const refreshToken = await this.authService.generateRefreshToken(user._id);
 
-    const returnedUser =
-      await this.userService.findOneWithoutPassword(user._id);
-
+    const returnedUser = await this.userService.findOneWithoutPassword(user._id);
     response.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -90,8 +74,12 @@ export default class UserController {
       sameSite: 'none' 
     });   
 
-    return { accessToken, user: returnedUser };
+    return response.json({ accessToken, user: returnedUser });
+  } catch (error) {
+    console.error(error);
+    return response.status(500).json({ message: 'An error occurred while processing your request.' });
   }
+}
 
   @Get('/me')
   @Authorized()
