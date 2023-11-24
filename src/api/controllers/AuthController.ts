@@ -106,7 +106,7 @@ export default class AuthController {
   async logout(@Res() response: Response) {
     response.cookie('refreshToken', '', {
       httpOnly: true,
-      secure: process.env.BACKEND_APP_ENV !== 'development',
+      secure: process.env.BACKEND_APP_ENV === 'development',
       sameSite: 'none',
       expires: new Date(0) 
   });
