@@ -104,11 +104,12 @@ export default class AuthController {
 
   @Post('/logout')
   async logout(@Res() response: Response) {
-  response.clearCookie('refreshToken', {
-    httpOnly: true,
-    secure: process.env.BACKEND_APP_ENV !== 'development',
-    sameSite: 'none',
-    domain: 'https://vatreniput-fe-git-fix-refreshtoken-vatreni-put.vercel.app'
+    response.cookie('refreshToken', '', {
+      httpOnly: true,
+      secure: process.env.BACKEND_APP_ENV !== 'development',
+      sameSite: 'none',
+      domain: 'vatreniput-fe-git-fix-refreshtoken-vatreni-put.vercel.app',
+      expires: new Date(0) 
   });
   return response.sendStatus(200);
 }
