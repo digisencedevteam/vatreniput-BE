@@ -108,7 +108,7 @@ export default class AuthController {
     httpOnly: true,
     secure: process.env.BACKEND_APP_ENV !== 'development',
     sameSite: 'none',
-    expires: new Date(0)
+    domain: 'https://vatreniput-fe-git-fix-refreshtoken-vatreni-put.vercel.app'
   });
   return response.sendStatus(200);
 }
