@@ -256,6 +256,36 @@ export class VotingService {
     };
   }
 
+  public async getTopVotes(): Promise<any> {
+    const votings = await Voting.find()
+      .sort({ createdAt: -1 })
+      .populate('votingOptions')
+      .exec();
+
+    const votingsWithMostVotedOption = await Promise.all(
+      votings.map(async (voting) => {
+        const mostVotedOption = await this.getMostVotedOption(voting._id);
+        return {
+          ...voting.toObject(),
+          mostVotedOption,
+        };
+      })
+    );
+
+    return votingsWithMostVotedOption;
+  }
+
+  private async getMostVotedOption(votingId: mongoose.Types.ObjectId) {
+    const votingResults = await this.getVotingResults(votingId);
+    if (votingResults.results.length === 0) return null;
+
+    const mostVoted = votingResults.results.reduce((max, current) => 
+      (max.count > current.count) ? max : current
+    );
+
+    return mostVoted;
+  }
+
   async deleteVoting(votingId: string): Promise<any> {
     const voting = await Voting.findById(votingId).exec();
     if (!voting) {

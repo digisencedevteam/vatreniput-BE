@@ -6,15 +6,15 @@ import PrintedCard from '../models/PrintedCard';
 import UserCard from '../models/UserCard';
 
 export class CardService {
+
   public async getCardWithEventDetails(cardId: string) {
-    const card = await CardTemplate.findById(cardId).populate(
-      'event'
-    );
+    const card = await CardTemplate.findById(cardId).populate('event');
     if (!card) {
-      throw new BadRequestError('Card not found!');
+      throw new BadRequestError('Sličica nije pronađena!');
     }
     return card.toObject();
   }
+
   public async createCard(
     cardData: Partial<typeof CardTemplate>
   ): Promise<typeof CardTemplate> {
@@ -29,21 +29,21 @@ export class CardService {
         _id: printedCardId,
         isScanned: false,
       });
-
+  
       if (!card) {
-        throw new BadRequestError(
-          'Card not found or already scanned.'
-        );
+        throw new BadRequestError('Sličica nije pronađena ili je već skenirana.');
       }
       const cardTemplate = await CardTemplate.findOne({
         _id: card.cardTemplate,
       }).populate('event');
-
+  
       return cardTemplate?.toObject();
     } catch (error) {
+      console.error('Error in getCardDetails:', error);
       throw new BadRequestError('Internal server error.');
     }
   }
+  
 
   public async findOneById(id: string) {
     const card = await CardTemplate.findOne({ _id: id });

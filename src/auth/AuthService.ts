@@ -5,7 +5,7 @@ import * as express from 'express';
 import User from '../api/models/User';
 import dotenv from 'dotenv';
 
-const ACCESS_TOKEN_EXPIRES = '1h';
+const ACCESS_TOKEN_EXPIRES = '14d';
 const REFRESH_TOKEN_EXPIRES = '30d';
 
 dotenv.config();

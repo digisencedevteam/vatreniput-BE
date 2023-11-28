@@ -15,7 +15,7 @@ const corsOptions = {
   origin: frontendAppLink, 
   credentials: true, 
   optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
 };
 
 // Connect to MongoDB

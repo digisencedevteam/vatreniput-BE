@@ -149,6 +149,24 @@ export class VotingController {
       throw new BadRequestError(error.message);
     }
   }
+
+  @Authorized()
+  @Get('/topVotes')
+  public async getTopVotes(
+    @CurrentUser({ required: true }) user: UserType,
+    @Res() res: Response
+  ): Promise<any> {
+    try {
+      const votings = await this.votingService.getTopVotes();
+      return res.json(votings);
+    } catch (error) {
+      console.log(error);
+      return res
+        .status(500)
+        .json({ error: 'An error occurred while fetching votings.' });
+    }
+  }
+
   @Authorized()
   @Delete('/:id')
   public async deleteVoting(

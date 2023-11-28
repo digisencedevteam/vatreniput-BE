@@ -31,16 +31,28 @@ export default class UserController {
   @Post('/register/:code')
   async register(
     @Param('code') code: string,
-    @Body()
-    requestBody: UserType
+    @Body() requestBody: UserType
   ) {
-    const savedUser = await this.userService.registerUser(
-      requestBody,
-      code
-    );
-
-    return savedUser;
+    try {
+      const savedUser = await this.userService.registerUser(
+        requestBody,
+        code
+      );
+      return savedUser;
+    } catch (error) {
+      let errorMessage = 'Došlo je do nepoznate greške.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      return {
+        status: 'error',
+        message: errorMessage,
+      };
+    }
   }
+  
 
   @Post('/login')
   async login(
@@ -52,15 +64,15 @@ export default class UserController {
   try {
     const user = await this.userService.getUserByEmail(email);
     if (!user) {
-      return response.status(401).json({ message: 'Invalid username or password' });
+      return response.status(401).json({ message: 'Neispravno korisničko ime ili lozinka' });
     }
     if (!user.isEmailVerified) {
-      return response.status(403).json({ message: 'Please verify your email to access the application.' });
+      return response.status(403).json({ message: 'Molimo potvrdite svoju e-mail adresu za pristup aplikaciji.' });
     }
 
     const isPasswordValid = await this.authService.verifyPassword(password, user.password || '');
     if (!isPasswordValid) {
-      return response.status(401).json({ message: 'Invalid username or password' });
+      return response.status(401).json({ message: 'Neispravno korisničko ime ili lozinka' });
     }
 
     const accessToken = await this.authService.generateAccessToken(user._id);
@@ -77,7 +89,7 @@ export default class UserController {
     return response.json({ accessToken, user: returnedUser });
   } catch (error) {
     console.error(error);
-    return response.status(500).json({ message: 'An error occurred while processing your request.' });
+    return response.status(500).json({ message: 'Došlo je do greške prilikom obrade vašeg zahtjeva.' });
   }
 }
 
@@ -122,7 +134,6 @@ export default class UserController {
         return new UserError(400, 'Email address is not vaild.');
       }
     }
-
     if (body.username) {
       const userNameResult = Utils.validUsername(body.username);
       if (!userNameResult) {
@@ -132,7 +143,6 @@ export default class UserController {
         );
       }
     }
-
     if (body.newPassword) {
       if (body.newPassword.length < 5) {
         return new UserError(

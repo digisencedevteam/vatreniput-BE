@@ -16,12 +16,12 @@ export class UserService {
       { username },
     ]);
     if (existingUser) {
-      throw new Error('Email or username already exists');
+      throw new Error('Email ili korisničko ime već postoje');
     }
     // check if album code is used
     const album = await Album.findOne({ code });
     if (!album || album.owner) {
-      throw new Error('Album for regiatration invalid');
+      throw new Error('Kod albuma za registraciju je nevažeći');
     }
 
     // Hash the password

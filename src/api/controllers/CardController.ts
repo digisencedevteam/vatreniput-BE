@@ -16,6 +16,7 @@ import { CardService } from '../services/CardService';
 import { EventService } from '../services/EventService';
 import { QuizService } from '../services/QuizService';
 import { VotingService } from '../services/VotingService';
+import { Types } from 'mongoose';
 
 @JsonController('/card')
 export default class CardController {
@@ -31,46 +32,51 @@ export default class CardController {
     this.votingService = new VotingService();
   }
 
-  @Patch('/add')
-  @Authorized()
-  async addCardToAlbum(
-    @CurrentUser({ required: true }) user: UserType,
-    @Body() body: { cardId: string }
-  ) {
-    const { cardId } = body;
-    if (!cardId) {
-      throw new BadRequestError('Card ID is required param.');
-    }
-    return await this.cardService.addCardToAlbum(user._id, cardId);
+@Patch('/add')
+@Authorized()
+async addCardToAlbum(
+  @CurrentUser({ required: true }) user: UserType,
+  @Body() body: { cardId: string }
+) {
+  const { cardId } = body;
+  if (!cardId || !Types.ObjectId.isValid(cardId)) {
+    throw new BadRequestError('Invalid or missing Card ID.');
   }
 
-  @Get('/collected')
-  @Authorized()
-  async getAllCardsFromUserAlbum(
-    @CurrentUser({ required: true }) user: UserType,
-    @QueryParam('page') page: number = 1,
-    @QueryParam('limit') limit: number = 10
-  ) {
-    // Ensure `page` and `limit` are valid numbers and fall within reasonable bounds
-    if (page < 1) {
-      throw new BadRequestError('Invalid page value.');
-    }
-
-    // Limit the maximum number of cards fetched in a single request to 100 (or your preferred max)
-    if (limit < 1 || limit > 100) {
-      throw new BadRequestError('Invalid limit value.');
-    }
-    const { cards, totalCount } =
-      await this.cardService.getAllCardsFromAlbum(
-        user._id,
-        Number(page),
-        Number(limit)
-      );
-    return {
-      cards,
-      totalCount,
-    };
+  try {
+    const result = await this.cardService.addCardToAlbum(user._id, cardId);
+    return { message: result };
+  } catch (error) {
+    console.error('Error in addCardToAlbum:', error);
+    throw new BadRequestError('Error adding card to album.');
   }
+}
+
+@Get('/collected')
+@Authorized()
+async getAllCardsFromUserAlbum(
+  @CurrentUser({ required: true }) user: UserType,
+  @QueryParam('page') page: number = 1,
+  @QueryParam('limit') limit: number = 10
+) {
+  if (page < 1) {
+    throw new BadRequestError('Stranica ne postoji.');
+  }
+  if (limit < 1 || limit > 100) {
+    throw new BadRequestError('Stranica ne postoji.');
+  }
+  try {
+    const { cards, totalCount } = await this.cardService.getAllCardsFromAlbum(
+      user._id,
+      Number(page),
+      Number(limit)
+    );
+    return { cards, totalCount };
+  } catch (error) {
+    console.error('Error in getAllCardsFromUserAlbum:', error);
+    throw new BadRequestError('Greška pri dobivanja sličica iz albuma');
+  }
+}
 
   @Get('/details/:printedCardId')
   async getCardDetails(
