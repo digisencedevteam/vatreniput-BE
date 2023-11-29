@@ -26,6 +26,7 @@ export class VotingService {
 
     return votingsWithVotedLabel;
   }
+
   public async getRecentUnvotedVotings(userId: string): Promise<any> {
     const allVotings = await Voting.find()
       .sort({ createdAt: -1 })
@@ -96,6 +97,70 @@ export class VotingService {
     });
 
     return await newVoting.save();
+  }
+
+  async getUserVotedVotingsWithTopOption(userId: string) {
+    return await UserVote.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: 'votings',
+          localField: 'voting',
+          foreignField: '_id',
+          as: 'votingDetails',
+        },
+      },
+      { $unwind: '$votingDetails' },
+      {
+        $addFields: {
+          votingTitle: '$votingDetails.title',
+        },
+      },
+      {
+        $lookup: {
+          from: 'uservotes',
+          localField: 'voting',
+          foreignField: 'voting',
+          as: 'allVotes',
+        },
+      },
+      { $unwind: '$allVotes' },
+      {
+        $group: {
+          _id: '$allVotes.votingOption',
+          votingId: { $first: '$votingDetails._id' },
+          votingTitle: { $first: '$votingTitle' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+      {
+        $group: {
+          _id: '$votingId',
+          topOption: { $first: '$_id' },
+          votingTitle: { $first: '$votingTitle' },
+          votes: { $first: '$count' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'votingoptions',
+          localField: 'topOption',
+          foreignField: '_id',
+          as: 'optionDetails',
+        },
+      },
+      { $unwind: '$optionDetails' },
+      {
+        $project: {
+          _id: 0,
+          votingId: '$_id',
+          votingTitle: 1,
+          topOption: '$optionDetails.text',
+          votes: 1,
+        },
+      },
+    ]);
   }
 
   async updateVoting(votingId: string, updateVotingData: any): Promise<any> {
