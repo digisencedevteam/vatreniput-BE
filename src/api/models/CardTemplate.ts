@@ -1,6 +1,7 @@
 import { Document, Schema, model } from 'mongoose';
 
 export interface CardTemplate extends Document {
+  ordinalNumber: number
   title: string;
   description: string;
   videoLink: string;
@@ -9,6 +10,7 @@ export interface CardTemplate extends Document {
 }
 
 const cardTemplateSchema = new Schema<CardTemplate>({
+  ordinalNumber: {type: Number, required: true},
   title: { type: String, required: true },
   description: { type: String, required: true },
   videoLink: { type: String, default: null },
