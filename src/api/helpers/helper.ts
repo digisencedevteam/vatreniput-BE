@@ -7,14 +7,7 @@ const sendgridEmailTemplateId = 'd-fb9e3fc9047d4c31b31c9608a7934c9b';
 const sendgridEmailTemplateIdEmailConfirm =
   'd-4ecac326f754462f943110a79a4fb640';
 
-/**
- * Generate a secure random token.
- * @param {number} length - The length of the token.
- * @returns {Promise<string>} A promise that resolves to the generated token.
- */
-export async function generateSecureToken(
-  length: number
-): Promise<string> {
+export async function generateSecureToken(length: number): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     crypto.randomBytes(length, (err, buffer) => {
       if (err) {
@@ -27,11 +20,7 @@ export async function generateSecureToken(
   });
 }
 
-// Function to send a password reset email
-export async function sendPasswordResetEmail(
-  email: string,
-  token: string
-) {
+export async function sendPasswordResetEmail(email: string, token: string) {
   const msg = {
     to: email,
     from: 'david.kraljic@digisence.agency',
@@ -69,10 +58,8 @@ export async function sendVerificationEmail(
   }
 }
 
-export const isEnvDevelopment =
-  process.env.BACKEND_APP_ENV === 'development';
-export const isEnvProduction =
-  process.env.BACKEND_APP_ENV === 'production';
+export const isEnvDevelopment = process.env.BACKEND_APP_ENV === 'development';
+export const isEnvProduction = process.env.BACKEND_APP_ENV === 'production';
 
 type AtEnvProps = {
   defaultValue: string;

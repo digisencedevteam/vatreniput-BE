@@ -1,7 +1,4 @@
-import {
-  generateSecureToken,
-  sendPasswordResetEmail,
-} from '../helpers/helper';
+import { generateSecureToken, sendPasswordResetEmail } from '../helpers/helper';
 import {
   JsonController,
   Post,
@@ -26,26 +23,29 @@ export class PasswordResetController {
   public async requestPasswordReset(
     @Body() requestBody: { email: string }
   ): Promise<any> {
-    const { email } = requestBody;
-    const user = await this.userService.findOneByEmail(email);
-    if (!user) {
-      throw new BadRequestError('User not found');
+    try {
+      const { email } = requestBody;
+      const user = await this.userService.findOneByEmail(email);
+      if (!user) {
+        throw new BadRequestError('Korisnik nije pronađen!');
+      }
+
+      const token = await generateSecureToken(32);
+      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await this.passwordResetTokenService.createToken(
+        user._id,
+        token,
+        expires
+      );
+      await sendPasswordResetEmail(user.email, token);
+
+      return { message: 'E-mail za resetiranje lozinke poslan.' };
+    } catch (error) {
+      console.error('Greška pri zahtjevu za resetiranje lozinke:', error);
+      throw new BadRequestError(
+        'Došlo je do greške pri zahtjevu za resetiranje lozinke.'
+      );
     }
-
-    // Generate a secure reset token (you can use a library like crypto-random-string)
-    const token = await generateSecureToken(32);
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // Expires in 24 hours
-
-    // Save the reset token in the database
-    await this.passwordResetTokenService.createToken(
-      user._id,
-      token,
-      expires
-    );
-
-    // Send the password reset email with the token
-    await sendPasswordResetEmail(user.email, token);
-    return user;
   }
 
   @Post('/reset')
@@ -53,34 +53,34 @@ export class PasswordResetController {
     @Body() body: { token: string; newPassword: string }
   ): Promise<any> {
     const { token, newPassword } = body;
+    try {
+      const resetToken = await this.passwordResetTokenService.findTokenByToken(
+        token
+      );
+      if (!resetToken || resetToken.expires < new Date()) {
+        throw new BadRequestError('Token nije važeći ili je istekao!');
+      }
+      const user = await this.userService.findOneById(resetToken.userId);
+      if (!user) {
+        throw new NotFoundError('Korisnik nije pronađen!');
+      }
+      const hashedPassword =
+        newPassword && (await bcrypt.hash(newPassword, 10));
+      await this.userService.updateUser(user._id, { password: hashedPassword });
+      await this.passwordResetTokenService.deleteToken(user._id, token);
 
-    // Use your password reset token service to find the user by the token
-    const resetToken =
-      await this.passwordResetTokenService.findTokenByToken(token);
-
-    if (!resetToken || resetToken.expires < new Date()) {
-      throw new BadRequestError('Invalid or expired token');
+      return user;
+    } catch (error: any) {
+      if (error.message === 'UserNotFound') {
+        throw new NotFoundError('Korisnik nije pronađen!');
+      } else if (error.message === 'TokenExpired') {
+        throw new BadRequestError('Token nije važeći ili je istekao!');
+      } else {
+        console.error('Greška pri resetiranju lozinke:', error);
+        throw new BadRequestError(
+          'Došlo je do greške pri resetiranju lozinke.'
+        );
+      }
     }
-
-    // Now that you have the user's unique identifier from the token, you can look up the user
-    // in your database and update their password
-    const user = await this.userService.findOneById(
-      resetToken.userId
-    );
-
-    if (!user) {
-      throw new NotFoundError('User not found');
-    }
-    const hashedPassword =
-      newPassword && (await bcrypt.hash(newPassword, 10));
-
-    // Update the user's password
-    await this.userService.updateUser(user._id, {
-      password: hashedPassword,
-    });
-
-    // Delete the used reset token
-    await this.passwordResetTokenService.deleteToken(user._id, token);
-    return user;
   }
 }

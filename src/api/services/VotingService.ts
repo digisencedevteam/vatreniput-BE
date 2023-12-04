@@ -2,7 +2,7 @@ import Voting from '../models/Voting';
 import VotingOption from '../models/VotingOption';
 import UserVote from '../models/UserVote';
 import { BadRequestError } from 'routing-controllers';
-import mongoose from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 
 export class VotingService {
   public async getAllVotings(userId: string): Promise<any> {
@@ -26,29 +26,37 @@ export class VotingService {
 
     return votingsWithVotedLabel;
   }
-  public async getRecentUnvotedVotings(userId: string): Promise<any> {
-    // Step 1: Fetch all votings and sort them by createdAt in descending order
-    const allVotings = await Voting.find()
-      .sort({ createdAt: -1 })
-      .select('_id title thumbnail createdAt')
-      .exec();
 
-    // Step 2: Filter out the votings that are already voted by the user
-    const unvotedVotings = await Promise.all(
-      allVotings.filter(async (voting) => {
+  public async getRecentUnvotedVotings(userId: string): Promise<any> {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new Error('InvalidUserID');
+    }
+    try {
+      const allVotings = await Voting.find()
+        .sort({ createdAt: -1 })
+        .select('_id title thumbnail createdAt')
+        .exec();
+      const unvotedVotings = allVotings.filter(async (voting) => {
         const userVote = await UserVote.findOne({
           user: userId,
           voting: voting._id,
         });
-        return !userVote; // Return true if userVote does not exist, i.e., the user has not voted
-      })
-    );
-
-    // Step 3: Limit the result to the 2 most recent unvoted votings
-    const recentUnvotedVotings = unvotedVotings.slice(0, 2);
-
-    return recentUnvotedVotings;
+        return !userVote;
+      });
+      const recentUnvotedVotings = unvotedVotings.slice(0, 2);
+      if (!recentUnvotedVotings || recentUnvotedVotings.length === 0) {
+        return [];
+      }
+      return recentUnvotedVotings;
+    } catch (error: any) {
+      console.error(
+        `Error fetching recent unvoted votings for user: ${userId}`,
+        error
+      );
+      throw new Error('DatabaseQueryFailed');
+    }
   }
+
   public async findVotingById(votingId: string): Promise<any> {
     return await Voting.findById(votingId).exec();
   }
@@ -72,9 +80,7 @@ export class VotingService {
       isVoted: !!userVote,
     };
   }
-  public async findVotingOptionById(
-    votingOptionId: string
-  ): Promise<any> {
+  public async findVotingOptionById(votingOptionId: string): Promise<any> {
     return await VotingOption.findById(votingOptionId).exec();
   }
   async createVoting(votingData: any): Promise<any> {
@@ -82,9 +88,7 @@ export class VotingService {
       title: votingData.title,
     }).exec();
     if (existingVoting) {
-      throw new BadRequestError(
-        'A voting with this title already exists.'
-      );
+      throw new BadRequestError('A voting with this title already exists.');
     }
 
     const votingOptions = await VotingOption.insertMany(
@@ -98,27 +102,19 @@ export class VotingService {
     return await newVoting.save();
   }
 
-  async updateVoting(
-    votingId: string,
-    updateVotingData: any
-  ): Promise<any> {
+  async updateVoting(votingId: string, updateVotingData: any): Promise<any> {
     const existingVoting = await Voting.findById(votingId)
       .populate('votingOptions')
       .exec();
 
     if (!existingVoting) {
-      throw new BadRequestError(
-        'Voting with the given ID does not exist.'
-      );
+      throw new BadRequestError('Voting with the given ID does not exist.');
     }
-
-    // Update the basic properties
     existingVoting.title = updateVotingData.title;
     existingVoting.description = updateVotingData.description;
     existingVoting.availableUntil = updateVotingData.availableUntil;
     existingVoting.thumbnail = updateVotingData.thumbnail;
 
-    // Create a map of existing options for easier comparison
     const existingOptionsMap = existingVoting.votingOptions.reduce(
       (map: any, option: any) => {
         map[option.text] = option;
@@ -127,23 +123,16 @@ export class VotingService {
       {}
     );
 
-    // Determine options to remove, add, or update
     const optionsToRemove: any[] = [];
     const optionsToAdd: any[] = [];
     const optionsToUpdate: any[] = [];
 
     updateVotingData.votingOptions.forEach((option: any) => {
       if (existingOptionsMap.hasOwnProperty(option.text)) {
-        // Existing option, check if thumbnail has changed
-        if (
-          existingOptionsMap[option.text].thumbnail !==
-          option.thumbnail
-        ) {
-          // Thumbnail has changed, mark for update
+        if (existingOptionsMap[option.text].thumbnail !== option.thumbnail) {
           optionsToUpdate.push(option);
         }
       } else {
-        // New option, mark for addition
         optionsToAdd.push(option);
       }
     });
@@ -154,17 +143,14 @@ export class VotingService {
           (newOption: any) => newOption.text === option.text
         )
       ) {
-        // Option has been removed, mark for removal
         optionsToRemove.push(option);
       }
     });
 
-    // Remove options that are not in the new data
     await VotingOption.deleteMany({
       _id: { $in: optionsToRemove.map((option) => option._id) },
     });
 
-    // Add new options
     const newVotingOptions = await VotingOption.insertMany(
       optionsToAdd.map((option) => ({
         text: option.text,
@@ -172,7 +158,6 @@ export class VotingService {
       }))
     );
 
-    // Update existing options
     await Promise.all(
       optionsToUpdate.map(async (option: any) => {
         const existingOption = existingOptionsMap[option.text];
@@ -181,12 +166,10 @@ export class VotingService {
       })
     );
 
-    // Update the votingOptions in the Voting document
     existingVoting.votingOptions = existingVoting.votingOptions
       .filter((option: any) => !optionsToRemove.includes(option))
       .concat(newVotingOptions.map((option: any) => option._id));
 
-    // Save the updated Voting
     return await existingVoting.save();
   }
 
@@ -195,7 +178,6 @@ export class VotingService {
     votingId: string,
     votingOptionId: string
   ): Promise<any> {
-    // Check for an existing vote
     const existingVote = await UserVote.findOne({
       user: userId,
       voting: votingId,
@@ -203,7 +185,6 @@ export class VotingService {
     if (existingVote) {
       throw new Error('User has already voted in this voting.');
     }
-
     const userVote = new UserVote({
       user: userId,
       voting: votingId,
@@ -218,7 +199,7 @@ export class VotingService {
       { $match: { voting: votingId } },
       {
         $lookup: {
-          from: 'votingoptions', // the name of the VotingOption collection
+          from: 'votingoptions',
           localField: 'votingOption',
           foreignField: '_id',
           as: 'optionDetails',
@@ -230,60 +211,22 @@ export class VotingService {
           _id: '$votingOption',
           count: { $sum: 1 },
           text: { $first: '$optionDetails.text' },
-          thumbnail: { $first: '$optionDetails.thumbnail' }, // Added this line
+          thumbnail: { $first: '$optionDetails.thumbnail' },
         },
       },
     ]);
-
-    const totalVotes = votingResults.reduce(
-      (acc, curr) => acc + curr.count,
-      0
-    );
-
-    const votingResultsWithPercentage = votingResults.map(
-      (result) => ({
-        votingOptionId: result._id,
-        votingOptionText: result.text,
-        votingOptionThumbnail: result.thumbnail, // Added this line
-        count: result.count,
-        percentage: ((result.count / totalVotes) * 100).toFixed(2),
-      })
-    );
-
+    const totalVotes = votingResults.reduce((acc, curr) => acc + curr.count, 0);
+    const votingResultsWithPercentage = votingResults.map((result) => ({
+      votingOptionId: result._id,
+      votingOptionText: result.text,
+      votingOptionThumbnail: result.thumbnail,
+      count: result.count,
+      percentage: ((result.count / totalVotes) * 100).toFixed(2),
+    }));
     return {
       totalVotes,
       results: votingResultsWithPercentage,
     };
-  }
-
-  public async getTopVotes(): Promise<any> {
-    const votings = await Voting.find()
-      .sort({ createdAt: -1 })
-      .populate('votingOptions')
-      .exec();
-
-    const votingsWithMostVotedOption = await Promise.all(
-      votings.map(async (voting) => {
-        const mostVotedOption = await this.getMostVotedOption(voting._id);
-        return {
-          ...voting.toObject(),
-          mostVotedOption,
-        };
-      })
-    );
-
-    return votingsWithMostVotedOption;
-  }
-
-  private async getMostVotedOption(votingId: mongoose.Types.ObjectId) {
-    const votingResults = await this.getVotingResults(votingId);
-    if (votingResults.results.length === 0) return null;
-
-    const mostVoted = votingResults.results.reduce((max, current) => 
-      (max.count > current.count) ? max : current
-    );
-
-    return mostVoted;
   }
 
   async deleteVoting(votingId: string): Promise<any> {
@@ -291,7 +234,6 @@ export class VotingService {
     if (!voting) {
       throw new BadRequestError('Voting not found.');
     }
-
     await VotingOption.deleteMany({
       _id: { $in: voting.votingOptions },
     });

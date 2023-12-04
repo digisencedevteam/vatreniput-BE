@@ -1,10 +1,14 @@
-import { AlbumType } from '../../types/index';
 import Album from '../models/Album';
 
 export class AlbumService {
   public async findAll() {
-    const albums = await Album.find();
-    return albums;
+    try {
+      const albums = await Album.find();
+      return albums;
+    } catch (error: any) {
+      console.error('Error finding all albums:', error);
+      throw new Error('DatabaseQueryFailed');
+    }
   }
 
   public async findOneById(id: string) {
@@ -13,41 +17,55 @@ export class AlbumService {
   }
 
   public async findOneByCode(code: string) {
-    const album = await Album.findOne({ code });
-    return album;
+    try {
+      const album = await Album.findOne({ code });
+      if (!album) {
+        throw new Error('AlbumNotFound');
+      }
+      return album;
+    } catch (error: any) {
+      console.error(`Error finding album by code: ${code}`, error);
+      throw error;
+    }
   }
 
-  public async validateOneByCode(code: string) {
-    const album = await Album.findOne({ code }).exec();
-    if (!album || !!album.owner) {
-      return false;
+  public async validateOneByCode(code: string): Promise<boolean> {
+    try {
+      const album = await Album.findOne({ code }).exec();
+      return !!(album && !album.owner);
+    } catch (error: any) {
+      console.error(`Error validating album by code: ${code}`, error);
+      throw new Error('DatabaseQueryFailed');
     }
-    return true;
   }
 
   public async updateAlbumUsed(id: string) {
-    const album = await Album.findByIdAndUpdate(
-      id,
-      { isUsed: true },
-      { new: true }
-    );
-    if (!album) {
-      throw new Error('Album not found');
+    try {
+      const album = await Album.findByIdAndUpdate(
+        id,
+        { isUsed: true },
+        { new: true }
+      );
+
+      if (!album) {
+        throw new Error('AlbumNotFound');
+      }
+
+      return album;
+    } catch (error: any) {
+      console.error(`Error updating album used status: ${id}`, error);
+      throw new Error('DatabaseUpdateFailed');
     }
-    return album;
   }
 
-  public async create(
-    code: string,
-    isUsed: boolean = false
-  ): Promise<AlbumType> {
-    const album = new Album({
-      code,
-      isUsed,
-    });
-
-    const savedAlbum = await album.save();
-
-    return savedAlbum.toObject();
+  public async create(code: string, isUsed: boolean = false) {
+    try {
+      const album = new Album({ code, isUsed });
+      const savedAlbum = await album.save();
+      return savedAlbum.toObject();
+    } catch (error: any) {
+      console.error(`Error creating album with code: ${code}`, error);
+      throw new Error('DatabaseSaveFailed');
+    }
   }
 }

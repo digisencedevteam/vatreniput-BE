@@ -12,13 +12,12 @@ const app = express();
 const cors = require('cors');
 
 const corsOptions = {
-  origin: frontendAppLink, 
-  credentials: true, 
+  origin: frontendAppLink,
+  credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
 };
 
-// Connect to MongoDB
 const mongoOptions: ConnectOptions = {};
 const uri = process.env.MONGODB_URI;
 const port = process.env.PORT || 3001;

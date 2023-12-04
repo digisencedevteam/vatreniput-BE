@@ -20,10 +20,7 @@ export class PasswordResetTokenService {
     return await PasswordResetToken.findOne({ token }).exec();
   }
 
-  public async deleteToken(
-    userId: string,
-    token: string
-  ): Promise<void> {
+  public async deleteToken(userId: string, token: string): Promise<void> {
     await PasswordResetToken.findOneAndDelete({
       userId,
       token,

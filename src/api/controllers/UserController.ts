@@ -27,17 +27,11 @@ export default class UserController {
     this.userService = new UserService();
     this.authService = new AuthService();
   }
-  
+
   @Post('/register/:code')
-  async register(
-    @Param('code') code: string,
-    @Body() requestBody: UserType
-  ) {
+  async register(@Param('code') code: string, @Body() requestBody: UserType) {
     try {
-      const savedUser = await this.userService.registerUser(
-        requestBody,
-        code
-      );
+      const savedUser = await this.userService.registerUser(requestBody, code);
       return savedUser;
     } catch (error) {
       let errorMessage = 'Došlo je do nepoznate greške.';
@@ -52,53 +46,63 @@ export default class UserController {
       };
     }
   }
-  
 
   @Post('/login')
   async login(
-  @Body() requestBody: { email: string; password: string; },
-  @Res() response: express.Response
+    @Body() requestBody: { email: string; password: string },
+    @Res() response: express.Response
   ) {
-  const { email, password } = requestBody;
+    const { email, password } = requestBody;
 
-  try {
-    const user = await this.userService.getUserByEmail(email);
-    if (!user) {
-      return response.status(401).json({ message: 'Neispravno korisničko ime ili lozinka' });
+    try {
+      const user = await this.userService.getUserByEmail(email);
+      if (!user) {
+        return response
+          .status(401)
+          .json({ message: 'Neispravno korisničko ime ili lozinka!' });
+      }
+      if (!user.isEmailVerified) {
+        return response.status(403).json({
+          message:
+            'Molimo potvrdite svoju e-mail adresu za pristup aplikaciji!',
+        });
+      }
+      const isPasswordValid = await this.authService.verifyPassword(
+        password,
+        user.password || ''
+      );
+      if (!isPasswordValid) {
+        return response.status(401).json({ message: 'Neispravna lozinka!' });
+      }
+
+      const accessToken = await this.authService.generateAccessToken(user._id);
+      const refreshToken = await this.authService.generateRefreshToken(
+        user._id
+      );
+      const returnedUser = await this.userService.findOneWithoutPassword(
+        user._id
+      );
+
+      response.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        secure: process.env.BACKEND_APP_ENV !== 'production',
+        sameSite: 'none',
+      });
+
+      return response.json({ accessToken, user: returnedUser });
+    } catch (error) {
+      console.error(error);
+      return response.status(500).json({
+        message: 'Došlo je do greške prilikom obrade vašeg zahtjeva.',
+      });
     }
-    if (!user.isEmailVerified) {
-      return response.status(403).json({ message: 'Molimo potvrdite svoju e-mail adresu za pristup aplikaciji.' });
-    }
-
-    const isPasswordValid = await this.authService.verifyPassword(password, user.password || '');
-    if (!isPasswordValid) {
-      return response.status(401).json({ message: 'Neispravno korisničko ime ili lozinka' });
-    }
-
-    const accessToken = await this.authService.generateAccessToken(user._id);
-    const refreshToken = await this.authService.generateRefreshToken(user._id);
-
-    const returnedUser = await this.userService.findOneWithoutPassword(user._id);
-    response.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      secure: process.env.BACKEND_APP_ENV !== 'production', 
-      sameSite: 'none' 
-    });   
-
-    return response.json({ accessToken, user: returnedUser });
-  } catch (error) {
-    console.error(error);
-    return response.status(500).json({ message: 'Došlo je do greške prilikom obrade vašeg zahtjeva.' });
   }
-}
 
   @Get('/me')
   @Authorized()
   async getMyInfo(@CurrentUser({ required: true }) user: UserType) {
-    const me = await this.userService.findOneWithoutPassword(
-      user._id
-    );
+    const me = await this.userService.findOneWithoutPassword(user._id);
     return {
       user: me,
     };
@@ -115,18 +119,13 @@ export default class UserController {
       return new BadRequestError('Missing body.');
     }
 
-    const targerUser = await this.userService.findOneWithoutPassword(
-      userId
-    );
+    const targerUser = await this.userService.findOneWithoutPassword(userId);
     if (!targerUser) {
       return new UserError(404, 'User not found');
     }
 
     if (targerUser?._id !== user._id.toString()) {
-      throw new UserError(
-        403,
-        'You dont have access to perform this action'
-      );
+      throw new UserError(403, 'You dont have access to perform this action');
     }
     if (body.email) {
       const emailResult = Utils.validEmail(body.email);
@@ -161,24 +160,19 @@ export default class UserController {
     @Param('userId') userId: string,
     @Res() response: any
   ): Promise<void> {
-    const userToDelete =
-      await this.userService.findOneWithoutPassword(userId);
+    const userToDelete = await this.userService.findOneWithoutPassword(userId);
 
     if (!userToDelete) {
       throw new UserError(404, 'User not found');
     }
 
-    const userAccess =
-      await this.userService.checkUserAccessForTargetUser(
-        user,
-        userToDelete
-      );
+    const userAccess = await this.userService.checkUserAccessForTargetUser(
+      user,
+      userToDelete
+    );
 
     if (!userAccess) {
-      throw new UserError(
-        403,
-        'You dont have access to perform this action'
-      );
+      throw new UserError(403, 'You dont have access to perform this action');
     }
     await this.userService.deleteUser(userId);
     return response.status(200).send({});

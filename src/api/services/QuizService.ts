@@ -1,4 +1,3 @@
-// Import necessary dependencies and models
 import Question from '../models/Question';
 import { BadRequestError } from 'routing-controllers';
 import { Service } from 'typedi';
@@ -6,8 +5,7 @@ import Quiz from '../models/Quiz';
 import QuizResult from '../models/QuizResult';
 import QuizStatus from '../models/QuizStatus';
 import UserQuizzAnswer from '../models/UserQuizzAnswer';
-import mongoose from 'mongoose';
-import { ObjectId } from 'bson';
+import mongoose, { Types } from 'mongoose';
 
 import {
   CreateQuestionBody,
@@ -21,57 +19,64 @@ export class QuizService {
     limit: number,
     userId: string
   ): Promise<any> {
-    const skip = (page - 1) * limit;
-
-    // Specify the type of the pipeline explicitly
-    const pipeline: any[] = [
-      {
-        $match: { userId },
-      },
-      {
-        $sort: { dateTaken: -1 },
-      },
-      {
-        $skip: skip,
-      },
-      {
-        $limit: limit,
-      },
-      {
-        $lookup: {
-          from: 'quizzes', // Your Quiz model collection name
-          localField: 'quizId',
-          foreignField: '_id',
-          as: 'quiz',
+    try {
+      const skip = (page - 1) * limit;
+      const pipeline: any[] = [
+        {
+          $match: { userId },
         },
-      },
-      {
-        $unwind: '$quiz',
-      },
-      {
-        $project: {
-          _id: 0,
-          quiz: {
-            _id: '$quiz._id',
-            title: '$quiz.title',
-            thumbnail: '$quiz.thumbnail',
+        {
+          $sort: { dateTaken: -1 },
+        },
+        {
+          $skip: skip,
+        },
+        {
+          $limit: limit,
+        },
+        {
+          $lookup: {
+            from: 'quizzes',
+            localField: 'quizId',
+            foreignField: '_id',
+            as: 'quiz',
           },
-          score: 1,
-          dateTaken: 1,
-          duration: 1,
         },
-      },
-    ];
-
-    const [resolvedQuizzes, totalCount] = await Promise.all([
-      QuizResult.aggregate(pipeline),
-      QuizResult.countDocuments({ userId }),
-    ]);
-
-    return {
-      count: totalCount, // Total count of resolved quizzes
-      resolvedQuizzes, // Array of resolved quizzes
-    };
+        {
+          $unwind: '$quiz',
+        },
+        {
+          $project: {
+            _id: 0,
+            quiz: {
+              _id: '$quiz._id',
+              title: '$quiz.title',
+              thumbnail: '$quiz.thumbnail',
+            },
+            score: 1,
+            dateTaken: 1,
+            duration: 1,
+          },
+        },
+      ];
+      const [resolvedQuizzes, totalCount] = await Promise.all([
+        QuizResult.aggregate(pipeline),
+        QuizResult.countDocuments({ userId }),
+      ]);
+      if (!resolvedQuizzes || resolvedQuizzes.length === 0) {
+        return { count: 0, resolvedQuizzes: [] };
+      }
+      return {
+        count: totalCount,
+        resolvedQuizzes,
+      };
+    } catch (error: any) {
+      console.error(
+        `Error in getResolvedQuizzesWithResults: ${error.message}`,
+        error
+      );
+      throw new Error('DatabaseQueryFailed');
+    }
   }
 
   public async getUnresolvedQuizzes(
@@ -80,82 +85,80 @@ export class QuizService {
     userId: string,
     searchQuery?: string
   ): Promise<any> {
-    // Calculate skip value based on the requested page and limit
-    const skip = (page - 1) * limit;
-
-    // Define the query object to filter by isExpired and optionally by name
-    const query: any = { isExpired: false };
-
-    if (searchQuery) {
-      // If a searchQuery is provided, add a case-insensitive name search
-      query.title = { $regex: new RegExp(searchQuery, 'i') };
-    }
-
-    // Find quizzes that do not have corresponding quiz results for the user
-    const resolvedQuizResults = await QuizResult.find({
-      userId,
-    }).lean();
-    const resolvedQuizIds = resolvedQuizResults.map(
-      (result: any) => result.quizId
-    );
-    const today = new Date();
-    // Find unresolved quizzes and get the total count
-    const [unresolvedQuizzes, totalCount] = await Promise.all([
-      Quiz.find({
-        _id: { $nin: resolvedQuizIds },
-        availableUntil: { $gte: today }, // Filter out quizzes where availableUntil is greater than or equal to today's date
-      })
-        .sort({ createdAt: -1 }) // Sort by most recent
-        .skip(skip)
-        .limit(limit)
-        .select('title thumbnail availableUntil createdAt')
-        .lean(),
-      Quiz.countDocuments({
-        _id: { $nin: resolvedQuizIds },
-        availableUntil: { $gte: today }, // Filter out quizzes where availableUntil is greater than or equal to today's date
-      }),
-    ]);
-    // Format the quiz data
-    const formattedQuizzes = [];
-    for (const unresolvedQuiz of unresolvedQuizzes) {
-      const status = await QuizStatus.find({
-        quizId: unresolvedQuiz._id,
-        userId,
-      });
-      const formatted = {
+    try {
+      const skip = (page - 1) * limit;
+      const query: any = { isExpired: false };
+      if (searchQuery) {
+        query.title = { $regex: new RegExp(searchQuery, 'i') };
+      }
+      const resolvedQuizResults = await QuizResult.find({ userId }).lean();
+      const resolvedQuizIds = resolvedQuizResults.map(
+        (result) => result.quizId
+      );
+      const today = new Date();
+      const [unresolvedQuizzes, totalCount] = await Promise.all([
+        Quiz.find({
+          ...query,
+          _id: { $nin: resolvedQuizIds },
+          availableUntil: { $gte: today },
+        })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .select('title thumbnail availableUntil createdAt')
+          .lean(),
+        Quiz.countDocuments({
+          ...query,
+          _id: { $nin: resolvedQuizIds },
+          availableUntil: { $gte: today },
+        }),
+      ]);
+      if (!unresolvedQuizzes || unresolvedQuizzes.length === 0) {
+        return { count: 0, unresolvedQuizzes: [] };
+      }
+      const formattedQuizzes = unresolvedQuizzes.map((unresolvedQuiz) => ({
         _id: unresolvedQuiz._id.toString(),
         title: unresolvedQuiz.title,
         thumbnail: unresolvedQuiz.thumbnail,
         availableUntil: unresolvedQuiz.availableUntil,
         createdAt: unresolvedQuiz.createdAt,
-        status,
+      }));
+      return {
+        count: totalCount,
+        unresolvedQuizzes: formattedQuizzes,
       };
-      formattedQuizzes.push(formatted);
+    } catch (error: any) {
+      console.error(`Error in getUnresolvedQuizzes: ${error.message}`, error);
+      throw new Error('DatabaseQueryFailed');
     }
-
-    return {
-      count: totalCount, // Total count of unresolved quizzes
-      unresolvedQuizzes: formattedQuizzes, // Array of unresolved quizzes
-    };
   }
-  public async getRecentQuizzes(userId: string) {
-    // Find quizzes that do not have corresponding quiz results for the user
-    const resolvedQuizResults = await QuizResult.find({
-      userId,
-    }).lean();
-    const resolvedQuizIds = resolvedQuizResults.map(
-      (result: any) => result.quizId
-    );
-    const quizzes = await Quiz.find({
-      _id: { $nin: resolvedQuizIds },
-      availableUntil: { $gte: new Date() }, // Filter out quizzes where availableUntil is greater than or equal to today's date
-    })
-      .sort({ createdAt: -1 }) // Sort by most recent
-      .select('_id title thumbnail availableUntil createdAt')
-      .limit(2)
-      .lean();
 
-    return quizzes;
+  public async getRecentQuizzes(userId: string) {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new Error('InvalidUserID');
+    }
+    try {
+      const resolvedQuizResults = await QuizResult.find({ userId }).lean();
+      const resolvedQuizIds = resolvedQuizResults.map(
+        (result: any) => result.quizId
+      );
+      const quizzes = await Quiz.find({
+        _id: { $nin: resolvedQuizIds },
+        availableUntil: { $gte: new Date() },
+      })
+        .sort({ createdAt: -1 })
+        .select('_id title thumbnail availableUntil createdAt')
+        .limit(2)
+        .lean();
+
+      if (!quizzes || quizzes.length === 0) {
+        return [];
+      }
+      return quizzes;
+    } catch (error: any) {
+      console.error(`Error fetching recent quizzes for user: ${userId}`, error);
+      throw new Error('DatabaseQueryFailed');
+    }
   }
 
   public async submitQuizResult(
@@ -165,162 +168,144 @@ export class QuizService {
     duration: number
   ) {
     try {
-      // Ensure that the userId and quizId are valid ObjectId strings
       if (
         !mongoose.Types.ObjectId.isValid(userId) ||
         !mongoose.Types.ObjectId.isValid(quizId)
       ) {
-        throw new Error('Invalid userId or quizId');
+        throw new Error('InvalidUserIdOrQuizId');
       }
 
-      // Check if the quiz exists
       const quiz = await Quiz.findById(quizId);
       if (!quiz) {
-        throw new Error('Quiz not found');
+        throw new Error('QuizNotFound');
       }
 
-      // Create a new QuizResult document
       const quizResult = new QuizResult({
         userId,
         quizId,
         score,
         duration,
       });
-
-      // Delete the QuizStatus document for this user and quiz
       await QuizStatus.deleteOne({ userId, quizId });
-
-      // Delete user quizz answers
       await UserQuizzAnswer.deleteMany({ userId, quizId });
-
-      // Save the QuizResult to the database
       await quizResult.save();
 
       return { message: 'QuizResult submitted successfully' };
     } catch (error) {
-      console.error(error);
-      throw new Error('Internal Server Error');
+      console.error('Error in submitQuizResult:', error);
+      throw new Error('DatabaseOperationFailed');
     }
   }
 
   public async getQuizDetailsById(quizId: string) {
-    const quiz = await Quiz.findById(quizId)
-      .populate('questions')
-      .lean();
-
-    if (!quiz) {
-      throw new BadRequestError('Quiz not found');
-    }
-    return {
-      ...quiz,
-      _id: quiz._id.toString(),
-      questions: quiz.questions
-        ? quiz?.questions.map((question: any) => {
-            return {
+    try {
+      const quiz = await Quiz.findById(quizId).populate('questions').lean();
+      if (!quiz) {
+        throw new Error('QuizNotFound');
+      }
+      return {
+        ...quiz,
+        _id: quiz._id.toString(),
+        questions: quiz.questions
+          ? quiz.questions.map((question: any) => ({
               ...question,
               _id: question._id.toString(),
-            };
-          })
-        : null,
-    };
+            }))
+          : null,
+      };
+    } catch (error) {
+      console.error('Error in getQuizDetailsById:', error);
+      throw new Error('DatabaseQueryFailed');
+    }
   }
+
   public async createQuizWithQuestions(
     createQuizDto: CreateQuizBody
   ): Promise<any> {
-    const existingQuiz = await Quiz.findOne({
-      title: createQuizDto.title,
-    }).exec();
+    try {
+      const existingQuiz = await Quiz.findOne({
+        title: createQuizDto.title,
+      }).exec();
+      if (existingQuiz) {
+        throw new Error('QuizAlreadyExists');
+      }
+      const questionsData: CreateQuestionBody[] = createQuizDto.questions;
+      const questions = await Question.insertMany(questionsData);
+      const quizData = {
+        title: createQuizDto.title,
+        description: createQuizDto.description,
+        thumbnail: createQuizDto.thumbnail,
+        questions: questions.map((q) => q._id),
+        isExpired: false,
+        availableUntil: new Date(createQuizDto.availableUntil),
+        createdAt: new Date(),
+      };
+      const quiz = new Quiz(quizData);
+      const result = await quiz.save();
 
-    if (existingQuiz) {
-      // A quiz with the same title already exists
-      throw new BadRequestError(
-        'A quiz with this title already exists.'
-      );
+      return {
+        ...result.toObject(),
+        _id: result._id.toString(),
+      };
+    } catch (error) {
+      console.error('Error in createQuizWithQuestions:', error);
+      throw new Error('DatabaseOperationFailed');
     }
-
-    const questionsData: CreateQuestionBody[] =
-      createQuizDto.questions;
-    const questions = await Question.insertMany(questionsData);
-
-    const quizData = {
-      title: createQuizDto.title,
-      description: createQuizDto.description,
-      thumbnail: createQuizDto.thumbnail,
-      questions: questions.map((q) => q._id),
-      isExpired: false,
-      availableUntil: new Date(createQuizDto.availableUntil),
-      createdAt: new Date(),
-    };
-
-    const quiz = new Quiz(quizData);
-    const result = await quiz.save();
-    return {
-      ...result.toObject(),
-      _id: result._id.toString(),
-    };
   }
+
   public async editQuiz(
     quizId: string,
     updateQuizDto: CreateQuizBody
   ): Promise<any> {
-    // Find the existing quiz by ID
-    const existingQuiz = await Quiz.findById({ _id: quizId }).exec();
-
-    if (!existingQuiz) {
-      throw new BadRequestError('Quiz not found.');
-    }
-
-    existingQuiz.title = updateQuizDto.title || existingQuiz.title;
-    existingQuiz.description =
-      updateQuizDto.description || existingQuiz.description;
-    existingQuiz.thumbnail =
-      updateQuizDto.thumbnail || existingQuiz.thumbnail;
-    existingQuiz.availableUntil =
-      new Date(updateQuizDto.availableUntil) ||
-      existingQuiz.availableUntil;
-
-    // Updating Questions
-    const updatedQuestionIds: any[] = [];
-    for (const questionDto of updateQuizDto.questions) {
-      if (questionDto._id) {
-        // If question ID exists, update the existing question
-        const existingQuestion = await Question.findById(
-          questionDto._id
-        ).exec();
-
-        if (!existingQuestion) {
-          throw new BadRequestError(
-            `Question with ID ${questionDto._id} not found.`
-          );
-        }
-        existingQuestion.text =
-          questionDto.text || existingQuestion.text;
-        existingQuestion.options =
-          questionDto.options || existingQuestion.options;
-        existingQuestion.correctOption =
-          questionDto.correctOption || existingQuestion.correctOption;
-        existingQuestion.image =
-          questionDto.image || existingQuestion.image;
-        await existingQuestion.save();
-
-        updatedQuestionIds.push(existingQuestion._id);
-      } else {
-        // Else create a new question
-        const newQuestion = new Question(questionDto);
-        await newQuestion.save();
-        updatedQuestionIds.push(newQuestion._id);
+    try {
+      const existingQuiz = await Quiz.findById({ _id: quizId }).exec();
+      if (!existingQuiz) {
+        throw new Error('QuizNotFound');
       }
+      existingQuiz.title = updateQuizDto.title || existingQuiz.title;
+      existingQuiz.description =
+        updateQuizDto.description || existingQuiz.description;
+      existingQuiz.thumbnail =
+        updateQuizDto.thumbnail || existingQuiz.thumbnail;
+      existingQuiz.availableUntil =
+        new Date(updateQuizDto.availableUntil) || existingQuiz.availableUntil;
+
+      const updatedQuestionIds: any[] = [];
+      for (const questionDto of updateQuizDto.questions) {
+        if (questionDto._id) {
+          const existingQuestion = await Question.findById(
+            questionDto._id
+          ).exec();
+          if (!existingQuestion) {
+            const error = new Error('QuestionNotFound');
+            throw error;
+          }
+          existingQuestion.text = questionDto.text || existingQuestion.text;
+          existingQuestion.options =
+            questionDto.options || existingQuestion.options;
+          existingQuestion.correctOption =
+            questionDto.correctOption || existingQuestion.correctOption;
+          existingQuestion.image = questionDto.image || existingQuestion.image;
+          await existingQuestion.save();
+
+          updatedQuestionIds.push(existingQuestion._id);
+        } else {
+          const newQuestion = new Question(questionDto);
+          await newQuestion.save();
+          updatedQuestionIds.push(newQuestion._id);
+        }
+      }
+
+      existingQuiz.questions = updatedQuestionIds;
+      await existingQuiz.save();
+      return {
+        ...existingQuiz.toObject(),
+        _id: existingQuiz._id.toString(),
+      };
+    } catch (error) {
+      console.error('Error in editQuiz:', error);
+      throw new Error('DatabaseOperationFailed');
     }
-
-    // Update the quiz's question list
-    existingQuiz.questions = updatedQuestionIds;
-
-    await existingQuiz.save();
-
-    return {
-      ...existingQuiz.toObject(),
-      _id: existingQuiz._id.toString(),
-    };
   }
 
   public async getBestQuizResults(
@@ -329,66 +314,74 @@ export class QuizService {
     limit: number = 10
   ) {
     const skip = (page - 1) * limit;
-
     const query = { quizId };
-
-    const quizResults = await QuizResult.find(query)
-      .sort({ score: -1, duration: 1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('userId') // replace 'username' with actual user fields you'd like to display
-      .exec();
-
-    const total = await QuizResult.countDocuments(query);
-
-    return {
-      quizResults,
-      count: total,
-    };
+    try {
+      const quizResults = await QuizResult.find(query)
+        .sort({ score: -1, duration: 1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('userId')
+        .exec();
+      if (!quizResults || quizResults.length === 0) {
+        throw new Error('NoQuizResultsFound');
+      }
+      const total = await QuizResult.countDocuments(query);
+      return {
+        quizResults,
+        count: total,
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   public async getAllQuizTitles() {
-    const quizzes = await Quiz.find({}, 'title').exec();
-    return quizzes;
+    try {
+      const quizzes = await Quiz.find({}, 'title').lean();
+      return quizzes.map((quiz) => quiz.title);
+    } catch (error) {
+      console.error('An error occurred while fetching quiz titles:', error);
+      throw new Error('DatabaseQueryFailed');
+    }
   }
 
-  public async getQuizStatusByUserAndIs(
-    userId: string,
-    quizId: string
-  ) {
-    const statuses = await QuizStatus.findOne({
-      userId,
-      quizId,
-    }).lean();
-    return statuses;
+  public async getQuizStatusByUserAndIds(userId: string, quizId: string) {
+    try {
+      const statuses = await QuizStatus.findOne({ userId, quizId }).lean();
+      return statuses;
+    } catch (error) {
+      console.error('Error in getQuizStatusByUserAndIs:', error);
+      throw new Error('DatabaseQueryFailed');
+    }
   }
 
   public async checkIfQuizResolved(userId: string, quizId: string) {
-    const results = await QuizResult.find({
-      userId,
-      quizId,
-    }).exec();
-    return results;
+    try {
+      const results = await QuizResult.find({ userId, quizId }).exec();
+      return results;
+    } catch (error) {
+      console.error('Error in checkIfQuizResolved:', error);
+      throw new Error('DatabaseQueryFailed');
+    }
   }
 
   public async startQuizz(userId: string, quizId: string) {
-    const existingStatus = await QuizStatus.findOne({
-      userId,
-      quizId,
-    });
-
-    if (existingStatus && existingStatus.status !== 'notStarted') {
-      throw new BadRequestError('Quiz already started or completed.');
+    try {
+      const existingStatus = await QuizStatus.findOne({ userId, quizId });
+      if (existingStatus && existingStatus.status !== 'notStarted') {
+        throw new Error('QuizAlreadyStartedOrCompleted');
+      }
+      const status = {
+        userId,
+        quizId,
+        status: 'inProgress',
+        startTime: new Date(),
+      };
+      await QuizStatus.create(status);
+    } catch (error) {
+      console.error('Error in startQuizz:', error);
+      throw new Error('DatabaseOperationFailed');
     }
-
-    const status = {
-      userId,
-      quizId,
-      status: 'inProgress',
-      startTime: new Date(),
-    };
-
-    await QuizStatus.create(status);
   }
 
   public async updateQuizAnswer(
@@ -415,9 +408,7 @@ export class QuizService {
     const questionIsInQuizz =
       questionsOfQuizz && questionsOfQuizz.includes(questionId);
     if (!questionIsInQuizz) {
-      throw new BadRequestError(
-        'This question is not found in that quizz'
-      );
+      throw new BadRequestError('This question is not found in that quizz');
     }
     const answer = await UserQuizzAnswer.findOneAndUpdate(
       { userId, quizId, questionId },
@@ -428,24 +419,26 @@ export class QuizService {
   }
 
   public async getAnswers(userId: string, quizId: string) {
-    const answers = await UserQuizzAnswer.find({ userId, quizId });
-    return answers;
+    try {
+      const answers = await UserQuizzAnswer.find({ userId, quizId });
+      return answers;
+    } catch (error) {
+      console.error('Error in getAnswers:', error);
+      throw new Error('DatabaseQueryFailed');
+    }
   }
 
   public async deleteQuiz(quizId: string): Promise<void> {
-    // Find the quiz by ID
-    const existingQuiz = await Quiz.findById(quizId);
-
-    if (!existingQuiz) {
-      throw new BadRequestError('Quiz not found');
+    try {
+      const existingQuiz = await Quiz.findById(quizId);
+      if (!existingQuiz) {
+        throw new Error('QuizNotFound');
+      }
+      await Question.deleteMany({ _id: { $in: existingQuiz.questions } });
+      await Quiz.findByIdAndDelete(quizId);
+    } catch (error) {
+      console.error('Error in deleteQuiz:', error);
+      throw new Error('DatabaseOperationFailed');
     }
-
-    // Delete questions related to the quiz
-    await Question.deleteMany({
-      _id: { $in: existingQuiz.questions },
-    });
-
-    // Delete the quiz itself
-    await Quiz.findByIdAndDelete(quizId);
   }
 }

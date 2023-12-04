@@ -6,7 +6,9 @@ import {
   CurrentUser,
   Delete,
   Get,
+  InternalServerError,
   JsonController,
+  NotFoundError,
   Param,
   Post,
   Put,
@@ -15,7 +17,6 @@ import {
 } from 'routing-controllers';
 import { UserType } from '../../types';
 import { CreateQuizBody } from './requests/QuizRequests';
-import { validate } from 'class-validator';
 import { Response } from 'express';
 
 @JsonController('/quizzes')
@@ -30,20 +31,25 @@ export default class QuizController {
   @Get('/unresolved')
   async getUnresolvedQuizzes(
     @CurrentUser({ required: true }) user: UserType,
-    @Res() res: Response,
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 5,
     @QueryParam('search') searchQuery?: string
   ) {
     const userId = user?._id;
-    const quizzes = await this.quizService.getUnresolvedQuizzes(
-      Number(page),
-      Number(limit),
-      userId,
-      searchQuery
-    );
-
-    return res.json(quizzes);
+    try {
+      const quizzes = await this.quizService.getUnresolvedQuizzes(
+        Number(page),
+        Number(limit),
+        userId,
+        searchQuery
+      );
+      return quizzes;
+    } catch (error: any) {
+      console.error('Greška prilikom dohvaćanja neriješenih kvizova:', error);
+      throw new InternalServerError(
+        'Greška na serveru prilikom dohvaćanja kvizova.'
+      );
+    }
   }
 
   @Authorized()
@@ -53,26 +59,38 @@ export default class QuizController {
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 5
   ) {
-    const userId = user?._id;
-    const quizzes =
-      await this.quizService.getResolvedQuizzesWithResults(
+    try {
+      const userId = user?._id;
+      const quizzes = await this.quizService.getResolvedQuizzesWithResults(
         Number(page),
         Number(limit),
         userId
       );
-    return quizzes;
+      return quizzes;
+    } catch (error: any) {
+      console.error('Greška prilikom dohvaćanja riješenih kvizova:', error);
+      throw new InternalServerError(
+        'Greška na serveru prilikom dohvaćanja kvizova.'
+      );
+    }
   }
 
   @Authorized()
   @Get('/all')
-  public async getAllQuizzes(@Res() res: Response) {
+  public async getAllQuizzes() {
     try {
       const quizzes = await this.quizService.getAllQuizTitles();
-      return res.status(200).json(quizzes);
-    } catch (error) {
-      return res.status(500).json({
-        error: 'An error occurred while fetching quiz titles.',
-      });
+      return quizzes;
+    } catch (error: any) {
+      console.error('An error occurred while fetching quiz titles:', error);
+      let errorMessage = 'Internal server error';
+      switch (error.message) {
+        case 'DatabaseQueryFailed':
+          errorMessage = 'Error fetching quizzes from the database';
+          throw new InternalServerError(errorMessage);
+        default:
+          throw new InternalServerError(errorMessage);
+      }
     }
   }
 
@@ -81,8 +99,7 @@ export default class QuizController {
   public async getBestQuizResults(
     @QueryParam('quizId') quizId: string,
     @QueryParam('page') page: number = 1,
-    @QueryParam('limit') limit: number = 10,
-    @Res() res: Response
+    @QueryParam('limit') limit: number = 10
   ) {
     try {
       const result = await this.quizService.getBestQuizResults(
@@ -90,12 +107,16 @@ export default class QuizController {
         Number(page),
         Number(limit)
       );
-
-      return res.status(200).json(result);
-    } catch (error) {
-      return res.status(500).json({
-        error: 'An error occurred while fetching quiz results.',
-      });
+      return result;
+    } catch (error: any) {
+      if (error.message === 'NoQuizResultsFound') {
+        throw new BadRequestError('No quiz results found.');
+      } else {
+        console.error('An error occurred while fetching quiz results:', error);
+        throw new InternalServerError(
+          'An error occurred while fetching quiz results.'
+        );
+      }
     }
   }
 
@@ -106,30 +127,36 @@ export default class QuizController {
     @CurrentUser({ required: true }) user: UserType,
     @Res() res: Response
   ) {
-    const userId = user._id;
-    const quizDetails = await this.quizService.getQuizDetailsById(
-      quizId
-    );
-    const quizStatus =
-      await this.quizService.getQuizStatusByUserAndIs(userId, quizId);
+    try {
+      const userId = user._id;
+      const quizDetails = await this.quizService.getQuizDetailsById(quizId);
+      const quizStatus = await this.quizService.getQuizStatusByUserAndIds(
+        userId,
+        quizId
+      );
+      const isQuizzResolved = await this.quizService.checkIfQuizResolved(
+        userId,
+        quizId
+      );
+      const quizzAnswers = await this.quizService.getAnswers(userId, quizId);
 
-    if (!quizDetails) {
-      throw new BadRequestError('Quiz not found');
+      return res.json({
+        ...quizDetails,
+        status: quizStatus ? quizStatus : null,
+        quizzAnswers: quizzAnswers ? quizzAnswers : null,
+        isResolved: !!isQuizzResolved && !!isQuizzResolved.length,
+      });
+    } catch (error: any) {
+      console.error('Error in getQuizDetails:', error.message);
+      switch (error.message) {
+        case 'QuizNotFound':
+          throw new BadRequestError('Quiz not found');
+        case 'DatabaseQueryFailed':
+          throw new InternalServerError('Error querying the database');
+        default:
+          throw new InternalServerError('Internal server error');
+      }
     }
-    const isQuizzResolved =
-      await this.quizService.checkIfQuizResolved(userId, quizId);
-
-    const quizzAnswers = await this.quizService.getAnswers(
-      userId,
-      quizId
-    );
-
-    return res.json({
-      ...quizDetails,
-      status: quizStatus ? quizStatus : null,
-      quizzAnswers: quizzAnswers ? quizzAnswers : null,
-      isResolved: !!isQuizzResolved && !!isQuizzResolved.length,
-    });
   }
 
   @Post('/')
@@ -147,13 +174,27 @@ export default class QuizController {
       duration: number;
     }
   ) {
-    const result = await this.quizService.submitQuizResult(
-      userId,
-      quizId,
-      score,
-      duration
-    );
-    return result;
+    try {
+      const result = await this.quizService.submitQuizResult(
+        userId,
+        quizId,
+        score,
+        duration
+      );
+      return result;
+    } catch (error: any) {
+      console.error('Error in submitQuizResult:', error.message);
+      switch (error.message) {
+        case 'InvalidUserIdOrQuizId':
+          throw new BadRequestError('Neispravni ID korisnika ili kviza!');
+        case 'QuizNotFound':
+          throw new BadRequestError('Kviz nije pronađen!');
+        case 'DatabaseOperationFailed':
+          throw new InternalServerError('Neuspješno slanje kviza!');
+        default:
+          throw new InternalServerError('Interna greška servera!');
+      }
+    }
   }
 
   @Authorized()
@@ -183,24 +224,29 @@ export default class QuizController {
     );
     return res.json(updatedAnswer);
   }
+
   @Authorized()
   @Post('/new')
   public async createQuizWithQuestions(
     @Body() createQuizBody: CreateQuizBody,
     @Res() res: Response
   ): Promise<any> {
-    // TODO: fix this
-    // const errors = await validate(createQuizBody, {
-    //   validationError: { target: false },
-    // });
-    // if (errors.length > 0) {
-    //   console.log(errors, 'EROROROROOROR');
-
-    //   throw new BadRequestError(errors.join(','));
-    // }
-    return await this.quizService.createQuizWithQuestions(
-      createQuizBody
-    );
+    try {
+      const result = await this.quizService.createQuizWithQuestions(
+        createQuizBody
+      );
+      return res.json(result);
+    } catch (error: any) {
+      console.error('Error in createQuizWithQuestions:', error.message);
+      switch (error.message) {
+        case 'QuizAlreadyExists':
+          throw new BadRequestError('Kviz s ovim naslovom već postoji!');
+        case 'DatabaseOperationFailed':
+          throw new InternalServerError('Neuspješno dodavanje novog kviza!');
+        default:
+          throw new InternalServerError('Interna greška servera!');
+      }
+    }
   }
 
   @Authorized()
@@ -209,10 +255,22 @@ export default class QuizController {
     @Param('quizId') quizId: string,
     @CurrentUser({ required: true }) user: UserType
   ) {
-    const userId = user._id;
-    await this.quizService.startQuizz(userId, quizId);
+    try {
+      const userId = user._id;
+      await this.quizService.startQuizz(userId, quizId);
 
-    return { message: 'Quiz started successfully.' };
+      return { message: 'Quiz started successfully.' };
+    } catch (error: any) {
+      console.error('Error in startQuiz:', error.message);
+      switch (error.message) {
+        case 'QuizAlreadyStartedOrCompleted':
+          throw new BadRequestError('Kviz je već započet ili dovršen!');
+        case 'DatabaseOperationFailed':
+          throw new InternalServerError('Neuspješna promjena baze podataka!');
+        default:
+          throw new InternalServerError('Internal greška servera!');
+      }
+    }
   }
 
   @Authorized()
@@ -221,17 +279,45 @@ export default class QuizController {
     @Param('quizId') quizId: string,
     @Body() updatedQuizData: CreateQuizBody
   ) {
-    const editedQuiz = await this.quizService.editQuiz(
-      quizId,
-      updatedQuizData
-    );
-    return editedQuiz;
+    try {
+      const editedQuiz = await this.quizService.editQuiz(
+        quizId,
+        updatedQuizData
+      );
+      return editedQuiz;
+    } catch (error: any) {
+      console.error('Error in editQuiz:', error.message);
+      switch (error.message) {
+        case 'QuizNotFound':
+          throw new BadRequestError('Kviz nije pronađen!');
+        case 'QuestionNotFound':
+          throw new BadRequestError(error.details);
+        case 'DatabaseOperationFailed':
+          throw new InternalServerError(
+            'Promjena baze podataka je neuspješna!'
+          );
+        default:
+          throw new InternalServerError('Interna greška servera!');
+      }
+    }
   }
 
   @Authorized()
   @Delete('/:quizId')
   async deleteQuiz(@Param('quizId') quizId: string) {
-    await this.quizService.deleteQuiz(quizId);
-    return { message: 'Quiz deleted successfully' };
+    try {
+      await this.quizService.deleteQuiz(quizId);
+      return { message: 'Quiz deleted successfully' };
+    } catch (error: any) {
+      console.error('Error in deleteQuiz:', error.message);
+      switch (error.message) {
+        case 'QuizNotFound':
+          throw new BadRequestError('Quiz not found');
+        case 'DatabaseOperationFailed':
+          throw new InternalServerError('Database operation failed');
+        default:
+          throw new InternalServerError('Internal server error');
+      }
+    }
   }
 }

@@ -2,37 +2,26 @@ import bcrypt from 'bcrypt';
 import User from '../models/User';
 import { UserType } from '../../types';
 import Album from '../models/Album';
-import {
-  generateSecureToken,
-  sendVerificationEmail,
-} from '../helpers/helper';
+import { generateSecureToken, sendVerificationEmail } from '../helpers/helper';
 
 export class UserService {
   public async registerUser(data: UserType, code: string) {
     const { email, password, username, firstName, lastName } = data;
-    // Check if the email or username already exists
-    const existingUser = await User.findOne().or([
-      { email },
-      { username },
-    ]);
+    const existingUser = await User.findOne().or([{ email }, { username }]);
     if (existingUser) {
       throw new Error('Email ili korisničko ime već postoje');
     }
-    // check if album code is used
     const album = await Album.findOne({ code });
     if (!album || album.owner) {
-      throw new Error('Kod albuma za registraciju je nevažeći');
+      throw new Error(
+        'Ipričavamo se, ali naš sustav nije pronašao aktivni album preko vašeg QR koda. Molimo vas da još jednom provjerite vaš album i pokušate ponovno. Hvala!'
+      );
     }
+    const hashedPassword = password && (await bcrypt.hash(password, 10));
 
-    // Hash the password
-    const hashedPassword =
-      password && (await bcrypt.hash(password, 10));
-
-    // send verification email
     const emailVerificationToken = await generateSecureToken(16);
     await sendVerificationEmail(email, emailVerificationToken);
 
-    // Create a new user
     const newUser = new User({
       email,
       password: hashedPassword,
@@ -44,13 +33,10 @@ export class UserService {
       role: 'regular',
     });
 
-    // Save the user to the database
     const savedUser = await newUser.save();
-
-    // Link user to album and mark album as used
     await Album.findOneAndUpdate({ code }, { owner: savedUser._id });
 
-    return savedUser.toObject(); // Convert the savedUser to a plain JavaScript object
+    return savedUser.toObject();
   }
 
   public async getUserByEmail(email: string): Promise<any> {
@@ -58,9 +44,7 @@ export class UserService {
     return user;
   }
 
-  public async getUserByVerificationToken(
-    token: string
-  ): Promise<any> {
+  public async getUserByVerificationToken(token: string): Promise<any> {
     const user = await User.findOne({
       verificationToken: token,
     }).exec();
@@ -68,57 +52,78 @@ export class UserService {
     return user;
   }
 
-  public async findOneWithoutPassword(
-    _id: string
-  ): Promise<UserType | null> {
-    const user = await User.findOne({ _id });
-    if (user) {
+  public async findOneWithoutPassword(_id: string): Promise<UserType | null> {
+    try {
+      const user = await User.findOne({ _id });
+      if (!user) {
+        throw new Error('Korisnik nije pronađen.');
+      }
       const {
         _id: userId,
         password: _,
         ...userWithoutPassword
       } = user.toObject();
       return { _id: userId.toString(), ...userWithoutPassword };
+    } catch (error) {
+      console.error(`Error fetching user with ID ${_id}:`, error);
+      throw new Error('Došlo je do greške pri dohvaćanju detalja korisnika.');
     }
-    return user;
   }
 
-  public async findOneByEmail(
-    email: string
-  ): Promise<UserType | null> {
-    const user = await User.findOne({ email }).lean();
-    return user;
+  public async findOneByEmail(email: string): Promise<UserType | null> {
+    try {
+      const user = await User.findOne({ email }).lean();
+      if (!user) {
+        throw new Error('Korisnik s navedenom email adresom nije pronađen.');
+      }
+      return user;
+    } catch (error) {
+      console.error(`Greška pri traženju korisnika s emailom: ${email}`, error);
+      throw new Error('Došlo je do greške pri traženju korisnika.');
+    }
   }
 
   public async findOneById(userId: string): Promise<UserType | null> {
-    const user = await User.findOne({ _id: userId }).lean();
-    return user;
+    try {
+      const user = await User.findOne({ _id: userId }).lean();
+      if (!user) {
+        throw new Error('UserNotFound');
+      }
+      return user;
+    } catch (error) {
+      console.error(`Error finding user by ID: ${userId}`, error);
+      throw new Error('DatabaseQueryFailed');
+    }
   }
 
   public async updateUser(
     userId: string,
     updateData: Partial<UserType>
   ): Promise<any> {
-    const user = await User.findOne({ _id: userId });
-    if (!user) {
-      return null;
-    }
     try {
-      const user = await User.findByIdAndUpdate(userId, updateData, {
+      const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
         new: true,
       });
-      return user?.toObject();
+      if (!updatedUser) {
+        throw new Error('UserUpdateFailed');
+      }
+      return updatedUser.toObject();
     } catch (error) {
-      throw error;
+      console.error(`Error updating user: ${userId}`, error);
+      throw new Error('DatabaseUpdateFailed');
     }
   }
 
   public async deleteUser(userId: string) {
     try {
       const user = await User.findByIdAndDelete(userId);
+      if (!user) {
+        throw new Error('Korisnik nije pronađen ili je već obrisan.');
+      }
       return user;
     } catch (error) {
-      throw error;
+      console.error(`Greška pri brisanju korisnika s ID-om: ${userId}`, error);
+      throw new Error('Došlo je do greške pri brisanju korisnika.');
     }
   }
 
@@ -129,16 +134,24 @@ export class UserService {
     if (user._id.toString() === targetUser._id.toString()) {
       return true;
     }
-
     return false;
   }
 
   public async updateLastLogin(userId: string): Promise<void> {
     const updateData = { lastLogin: new Date() };
     try {
-      await User.findByIdAndUpdate(userId, updateData);
+      const updatedUser = await User.findByIdAndUpdate(userId, updateData);
+      if (!updatedUser) {
+        throw new Error('Korisnik nije pronađen.');
+      }
     } catch (error) {
-      throw new Error('Unable to update last login');
+      console.error(
+        `Greška pri ažuriranju vremena zadnje prijave za korisnika s ID-om: ${userId}`,
+        error
+      );
+      throw new Error(
+        'Došlo je do greške pri ažuriranju vremena zadnje prijave.'
+      );
     }
   }
 }
