@@ -18,37 +18,42 @@ export class VotingService {
           voting: voting._id,
         });
         return {
-          ...voting.toObject(), // Convert the Mongoose Document to a plain JavaScript object
-          isVoted: !!userVote, // The !! operator converts userVote to a boolean (true if exists, false if not)
+          ...voting.toObject(),
+          isVoted: !!userVote,
         };
       })
     );
 
     return votingsWithVotedLabel;
   }
+
   public async getRecentUnvotedVotings(userId: string): Promise<any> {
-    // Step 1: Fetch all votings and sort them by createdAt in descending order
     const allVotings = await Voting.find()
       .sort({ createdAt: -1 })
       .select('_id title thumbnail createdAt')
       .exec();
 
-    // Step 2: Filter out the votings that are already voted by the user
-    const unvotedVotings = await Promise.all(
-      allVotings.filter(async (voting) => {
+    const votingsWithVoteStatus = await Promise.all(
+      allVotings.map(async (voting) => {
         const userVote = await UserVote.findOne({
           user: userId,
           voting: voting._id,
         });
-        return !userVote; // Return true if userVote does not exist, i.e., the user has not voted
+        return {
+          ...voting.toObject(),
+          isVoted: !!userVote,
+        };
       })
     );
 
-    // Step 3: Limit the result to the 2 most recent unvoted votings
+    const unvotedVotings = votingsWithVoteStatus.filter(
+      (voting) => !voting.isVoted
+    );
     const recentUnvotedVotings = unvotedVotings.slice(0, 2);
 
     return recentUnvotedVotings;
   }
+
   public async findVotingById(votingId: string): Promise<any> {
     return await Voting.findById(votingId).exec();
   }
@@ -72,9 +77,7 @@ export class VotingService {
       isVoted: !!userVote,
     };
   }
-  public async findVotingOptionById(
-    votingOptionId: string
-  ): Promise<any> {
+  public async findVotingOptionById(votingOptionId: string): Promise<any> {
     return await VotingOption.findById(votingOptionId).exec();
   }
   async createVoting(votingData: any): Promise<any> {
@@ -82,9 +85,7 @@ export class VotingService {
       title: votingData.title,
     }).exec();
     if (existingVoting) {
-      throw new BadRequestError(
-        'A voting with this title already exists.'
-      );
+      throw new BadRequestError('A voting with this title already exists.');
     }
 
     const votingOptions = await VotingOption.insertMany(
@@ -98,18 +99,77 @@ export class VotingService {
     return await newVoting.save();
   }
 
-  async updateVoting(
-    votingId: string,
-    updateVotingData: any
-  ): Promise<any> {
+  async getUserVotedVotingsWithTopOption(userId: string) {
+    return await UserVote.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: 'votings',
+          localField: 'voting',
+          foreignField: '_id',
+          as: 'votingDetails',
+        },
+      },
+      { $unwind: '$votingDetails' },
+      {
+        $addFields: {
+          votingTitle: '$votingDetails.title',
+        },
+      },
+      {
+        $lookup: {
+          from: 'uservotes',
+          localField: 'voting',
+          foreignField: 'voting',
+          as: 'allVotes',
+        },
+      },
+      { $unwind: '$allVotes' },
+      {
+        $group: {
+          _id: '$allVotes.votingOption',
+          votingId: { $first: '$votingDetails._id' },
+          votingTitle: { $first: '$votingTitle' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+      {
+        $group: {
+          _id: '$votingId',
+          topOption: { $first: '$_id' },
+          votingTitle: { $first: '$votingTitle' },
+          votes: { $first: '$count' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'votingoptions',
+          localField: 'topOption',
+          foreignField: '_id',
+          as: 'optionDetails',
+        },
+      },
+      { $unwind: '$optionDetails' },
+      {
+        $project: {
+          _id: 0,
+          votingId: '$_id',
+          votingTitle: 1,
+          topOption: '$optionDetails.text',
+          votes: 1,
+        },
+      },
+    ]);
+  }
+
+  async updateVoting(votingId: string, updateVotingData: any): Promise<any> {
     const existingVoting = await Voting.findById(votingId)
       .populate('votingOptions')
       .exec();
 
     if (!existingVoting) {
-      throw new BadRequestError(
-        'Voting with the given ID does not exist.'
-      );
+      throw new BadRequestError('Voting with the given ID does not exist.');
     }
 
     // Update the basic properties
@@ -135,10 +195,7 @@ export class VotingService {
     updateVotingData.votingOptions.forEach((option: any) => {
       if (existingOptionsMap.hasOwnProperty(option.text)) {
         // Existing option, check if thumbnail has changed
-        if (
-          existingOptionsMap[option.text].thumbnail !==
-          option.thumbnail
-        ) {
+        if (existingOptionsMap[option.text].thumbnail !== option.thumbnail) {
           // Thumbnail has changed, mark for update
           optionsToUpdate.push(option);
         }
@@ -235,20 +292,15 @@ export class VotingService {
       },
     ]);
 
-    const totalVotes = votingResults.reduce(
-      (acc, curr) => acc + curr.count,
-      0
-    );
+    const totalVotes = votingResults.reduce((acc, curr) => acc + curr.count, 0);
 
-    const votingResultsWithPercentage = votingResults.map(
-      (result) => ({
-        votingOptionId: result._id,
-        votingOptionText: result.text,
-        votingOptionThumbnail: result.thumbnail, // Added this line
-        count: result.count,
-        percentage: ((result.count / totalVotes) * 100).toFixed(2),
-      })
-    );
+    const votingResultsWithPercentage = votingResults.map((result) => ({
+      votingOptionId: result._id,
+      votingOptionText: result.text,
+      votingOptionThumbnail: result.thumbnail, // Added this line
+      count: result.count,
+      percentage: ((result.count / totalVotes) * 100).toFixed(2),
+    }));
 
     return {
       totalVotes,
