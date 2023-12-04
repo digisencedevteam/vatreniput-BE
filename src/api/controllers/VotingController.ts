@@ -12,7 +12,8 @@ import {
   CurrentUser,
 } from 'routing-controllers';
 import { Response } from 'express';
-import { VotingService } from '../services/VotingService';
+
+import { VotingService } from '../services/VotingService'; // Replace with your actual path
 import { CreateVotingBody, SubmitVote } from './requests/VotingRequests';
 import { UserType } from '../../types';
 import mongoose from 'mongoose';
@@ -37,6 +38,25 @@ export class VotingController {
       return res
         .status(500)
         .json({ error: 'An error occurred while fetching votings.' });
+    }
+  }
+
+  @Authorized()
+  @Get('/user/:userId/top-votes')
+  public async getUserTopVotedOptions(
+    @Param('userId') userId: string,
+    @Res() res: Response
+  ): Promise<any> {
+    try {
+      const results = await this.votingService.getUserVotedVotingsWithTopOption(
+        userId
+      );
+      return res.json(results);
+    } catch (error) {
+      console.log(error);
+      return res
+        .status(500)
+        .json({ error: 'An error occurred while fetching the data.' });
     }
   }
 

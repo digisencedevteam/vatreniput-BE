@@ -18,8 +18,8 @@ export class VotingService {
           voting: voting._id,
         });
         return {
-          ...voting.toObject(), // Convert the Mongoose Document to a plain JavaScript object
-          isVoted: !!userVote, // The !! operator converts userVote to a boolean (true if exists, false if not)
+          ...voting.toObject(),
+          isVoted: !!userVote,
         };
       })
     );
@@ -28,33 +28,30 @@ export class VotingService {
   }
 
   public async getRecentUnvotedVotings(userId: string): Promise<any> {
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new Error('InvalidUserID');
-    }
-    try {
-      const allVotings = await Voting.find()
-        .sort({ createdAt: -1 })
-        .select('_id title thumbnail createdAt')
-        .exec();
-      const unvotedVotings = allVotings.filter(async (voting) => {
+    const allVotings = await Voting.find()
+      .sort({ createdAt: -1 })
+      .select('_id title thumbnail createdAt')
+      .exec();
+
+    const votingsWithVoteStatus = await Promise.all(
+      allVotings.map(async (voting) => {
         const userVote = await UserVote.findOne({
           user: userId,
           voting: voting._id,
         });
-        return !userVote;
-      });
-      const recentUnvotedVotings = unvotedVotings.slice(0, 2);
-      if (!recentUnvotedVotings || recentUnvotedVotings.length === 0) {
-        return [];
-      }
-      return recentUnvotedVotings;
-    } catch (error: any) {
-      console.error(
-        `Error fetching recent unvoted votings for user: ${userId}`,
-        error
-      );
-      throw new Error('DatabaseQueryFailed');
-    }
+        return {
+          ...voting.toObject(),
+          isVoted: !!userVote,
+        };
+      })
+    );
+
+    const unvotedVotings = votingsWithVoteStatus.filter(
+      (voting) => !voting.isVoted
+    );
+    const recentUnvotedVotings = unvotedVotings.slice(0, 2);
+
+    return recentUnvotedVotings;
   }
 
   public async findVotingById(votingId: string): Promise<any> {
@@ -102,6 +99,70 @@ export class VotingService {
     return await newVoting.save();
   }
 
+  async getUserVotedVotingsWithTopOption(userId: string) {
+    return await UserVote.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: 'votings',
+          localField: 'voting',
+          foreignField: '_id',
+          as: 'votingDetails',
+        },
+      },
+      { $unwind: '$votingDetails' },
+      {
+        $addFields: {
+          votingTitle: '$votingDetails.title',
+        },
+      },
+      {
+        $lookup: {
+          from: 'uservotes',
+          localField: 'voting',
+          foreignField: 'voting',
+          as: 'allVotes',
+        },
+      },
+      { $unwind: '$allVotes' },
+      {
+        $group: {
+          _id: '$allVotes.votingOption',
+          votingId: { $first: '$votingDetails._id' },
+          votingTitle: { $first: '$votingTitle' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+      {
+        $group: {
+          _id: '$votingId',
+          topOption: { $first: '$_id' },
+          votingTitle: { $first: '$votingTitle' },
+          votes: { $first: '$count' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'votingoptions',
+          localField: 'topOption',
+          foreignField: '_id',
+          as: 'optionDetails',
+        },
+      },
+      { $unwind: '$optionDetails' },
+      {
+        $project: {
+          _id: 0,
+          votingId: '$_id',
+          votingTitle: 1,
+          topOption: '$optionDetails.text',
+          votes: 1,
+        },
+      },
+    ]);
+  }
+
   async updateVoting(votingId: string, updateVotingData: any): Promise<any> {
     const existingVoting = await Voting.findById(votingId)
       .populate('votingOptions')
@@ -129,7 +190,9 @@ export class VotingService {
 
     updateVotingData.votingOptions.forEach((option: any) => {
       if (existingOptionsMap.hasOwnProperty(option.text)) {
+        // Existing option, check if thumbnail has changed
         if (existingOptionsMap[option.text].thumbnail !== option.thumbnail) {
+          // Thumbnail has changed, mark for update
           optionsToUpdate.push(option);
         }
       } else {
@@ -215,14 +278,17 @@ export class VotingService {
         },
       },
     ]);
+
     const totalVotes = votingResults.reduce((acc, curr) => acc + curr.count, 0);
+
     const votingResultsWithPercentage = votingResults.map((result) => ({
       votingOptionId: result._id,
       votingOptionText: result.text,
-      votingOptionThumbnail: result.thumbnail,
+      votingOptionThumbnail: result.thumbnail, // Added this line
       count: result.count,
       percentage: ((result.count / totalVotes) * 100).toFixed(2),
     }));
+
     return {
       totalVotes,
       results: votingResultsWithPercentage,
