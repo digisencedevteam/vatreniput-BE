@@ -7,6 +7,7 @@ import {
   Delete,
   Get,
   JsonController,
+  NotFoundError,
   Param,
   Post,
   Put,
@@ -15,15 +16,17 @@ import {
 } from 'routing-controllers';
 import { UserType } from '../../types';
 import { CreateQuizBody } from './requests/QuizRequests';
-import { validate } from 'class-validator';
 import { Response } from 'express';
+import { UserService } from '../services/UserService';
 
 @JsonController('/quizzes')
 export default class QuizController {
   private quizService: QuizService;
+  private userService: UserService;
 
   constructor() {
     this.quizService = new QuizService();
+    this.userService = new UserService();
   }
 
   @Authorized()
@@ -35,7 +38,11 @@ export default class QuizController {
     @QueryParam('limit') limit: number = 5,
     @QueryParam('search') searchQuery?: string
   ) {
-    const userId = user?._id;
+    const foundUser = this.userService.findOneById(user._id);
+    if (!foundUser) {
+      throw new NotFoundError('Korisnik nije pronađen.');
+    }
+    const userId = user._id;
     const quizzes = await this.quizService.getUnresolvedQuizzes(
       Number(page),
       Number(limit),
@@ -53,13 +60,17 @@ export default class QuizController {
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 5
   ) {
-    const userId = user?._id;
-    const quizzes =
-      await this.quizService.getResolvedQuizzesWithResults(
-        Number(page),
-        Number(limit),
-        userId
-      );
+    const foundUser = this.userService.findOneById(user._id);
+    if (!foundUser) {
+      throw new NotFoundError('Korisnik nije pronađen.');
+    }
+    const userId = user._id;
+    const quizzes = await this.quizService.getResolvedQuizzesWithResults(
+      Number(page),
+      Number(limit),
+      userId
+    );
+
     return quizzes;
   }
 
@@ -68,11 +79,12 @@ export default class QuizController {
   public async getAllQuizzes(@Res() res: Response) {
     try {
       const quizzes = await this.quizService.getAllQuizTitles();
-      return res.status(200).json(quizzes);
+      if (!quizzes) {
+        throw new NotFoundError('Kvizovi nisu pronađeni.');
+      }
+      return res.json(quizzes);
     } catch (error) {
-      return res.status(500).json({
-        error: 'An error occurred while fetching quiz titles.',
-      });
+      throw new BadRequestError('Interna greška servera.');
     }
   }
 
@@ -84,19 +96,16 @@ export default class QuizController {
     @QueryParam('limit') limit: number = 10,
     @Res() res: Response
   ) {
-    try {
-      const result = await this.quizService.getBestQuizResults(
-        quizId,
-        Number(page),
-        Number(limit)
-      );
-
-      return res.status(200).json(result);
-    } catch (error) {
-      return res.status(500).json({
-        error: 'An error occurred while fetching quiz results.',
-      });
+    if (!quizId) {
+      throw new BadRequestError('Nedostaje ID kviza.');
     }
+    const result = await this.quizService.getBestQuizResults(
+      quizId,
+      Number(page),
+      Number(limit)
+    );
+
+    return res.status(200).json(result);
   }
 
   @Authorized()
@@ -106,24 +115,26 @@ export default class QuizController {
     @CurrentUser({ required: true }) user: UserType,
     @Res() res: Response
   ) {
-    const userId = user._id;
-    const quizDetails = await this.quizService.getQuizDetailsById(
-      quizId
-    );
-    const quizStatus =
-      await this.quizService.getQuizStatusByUserAndIs(userId, quizId);
-
-    if (!quizDetails) {
-      throw new BadRequestError('Quiz not found');
+    if (!quizId) {
+      throw new BadRequestError('Nedostaje ID kviza.');
     }
-    const isQuizzResolved =
-      await this.quizService.checkIfQuizResolved(userId, quizId);
-
-    const quizzAnswers = await this.quizService.getAnswers(
+    const userId = user._id;
+    const quizDetails = await this.quizService.getQuizDetailsById(quizId);
+    const quizStatus = await this.quizService.getQuizStatusByUserAndIds(
       userId,
       quizId
     );
-
+    if (!quizDetails) {
+      throw new NotFoundError('Kviz nije pronađen.');
+    }
+    const isQuizzResolved = await this.quizService.checkIfQuizResolved(
+      userId,
+      quizId
+    );
+    const quizzAnswers = await this.quizService.getAnswers(userId, quizId);
+    if (!quizzAnswers) {
+      throw new NotFoundError('Odgovori kviza nisu pronađeni.');
+    }
     return res.json({
       ...quizDetails,
       status: quizStatus ? quizStatus : null,
@@ -147,6 +158,9 @@ export default class QuizController {
       duration: number;
     }
   ) {
+    if (!userId || !quizId || !score || !duration) {
+      throw new BadRequestError('Nepotpuni podaci potrebni za slanje kviza.');
+    }
     const result = await this.quizService.submitQuizResult(
       userId,
       quizId,
@@ -186,21 +200,14 @@ export default class QuizController {
   @Authorized()
   @Post('/new')
   public async createQuizWithQuestions(
-    @Body() createQuizBody: CreateQuizBody,
-    @Res() res: Response
+    @Body() createQuizBody: CreateQuizBody
   ): Promise<any> {
-    // TODO: fix this
-    // const errors = await validate(createQuizBody, {
-    //   validationError: { target: false },
-    // });
-    // if (errors.length > 0) {
-    //   console.log(errors, 'EROROROROOROR');
-
-    //   throw new BadRequestError(errors.join(','));
-    // }
-    return await this.quizService.createQuizWithQuestions(
-      createQuizBody
-    );
+    if (!createQuizBody.availableUntil || !createQuizBody.questions) {
+      throw new BadRequestError(
+        'Nedostaju podaci za potrebni za kreiranje novog kviza.'
+      );
+    }
+    return await this.quizService.createQuizWithQuestions(createQuizBody);
   }
 
   @Authorized()
@@ -210,9 +217,9 @@ export default class QuizController {
     @CurrentUser({ required: true }) user: UserType
   ) {
     const userId = user._id;
-    await this.quizService.startQuizz(userId, quizId);
+    await this.quizService.startQuiz(userId, quizId);
 
-    return { message: 'Quiz started successfully.' };
+    return { message: 'Kviz je uspješno započet.' };
   }
 
   @Authorized()
@@ -221,10 +228,7 @@ export default class QuizController {
     @Param('quizId') quizId: string,
     @Body() updatedQuizData: CreateQuizBody
   ) {
-    const editedQuiz = await this.quizService.editQuiz(
-      quizId,
-      updatedQuizData
-    );
+    const editedQuiz = await this.quizService.editQuiz(quizId, updatedQuizData);
     return editedQuiz;
   }
 

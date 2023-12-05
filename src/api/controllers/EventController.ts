@@ -1,6 +1,12 @@
-// controllers/EventController.ts
-import { Get, JsonController, Authorized } from 'routing-controllers';
+import {
+  Get,
+  JsonController,
+  Authorized,
+  Res,
+  NotFoundError,
+} from 'routing-controllers';
 import { EventService } from '../services/EventService';
+import { Response } from 'express';
 
 @JsonController('/event')
 export default class EventController {
@@ -12,7 +18,12 @@ export default class EventController {
 
   @Get('/all')
   @Authorized()
-  async getAllEvents() {
-    return await this.eventService.getAllEvents();
+  async getAllEvents(@Res() res: Response) {
+    const events = await this.eventService.getAllEvents();
+    if (!events) {
+      throw new NotFoundError('Trenutno nemamo dostupnih prvenstava.');
+    }
+
+    return res.json(events);
   }
 }

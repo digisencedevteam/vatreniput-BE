@@ -1,4 +1,8 @@
-import { BadRequestError } from 'routing-controllers';
+import {
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+} from 'routing-controllers';
 import Album from '../models/Album';
 import { Types } from 'mongoose';
 import CardTemplate from '../models/CardTemplate';
@@ -7,53 +11,46 @@ import UserCard from '../models/UserCard';
 
 export class CardService {
   public async getCardWithEventDetails(cardId: string) {
-    const card = await CardTemplate.findById(cardId).populate(
-      'event'
-    );
+    const card = await CardTemplate.findById(cardId).populate('event').lean();
     if (!card) {
-      throw new BadRequestError('Card not found!');
+      throw new NotFoundError('Sličica nije pronađena.');
     }
-    return card.toObject();
-  }
-  public async createCard(
-    cardData: Partial<typeof CardTemplate>
-  ): Promise<typeof CardTemplate> {
-    const card = new CardTemplate(cardData);
-    await card.save();
-    return card.toObject();
+    return card;
   }
 
   public async getCardDetails(printedCardId: string) {
-    try {
-      const card = await PrintedCard.findOne({
-        _id: printedCardId,
-        isScanned: false,
-      });
+    const card = await PrintedCard.findOne({
+      _id: printedCardId,
+      isScanned: false,
+    });
 
-      if (!card) {
-        throw new BadRequestError(
-          'Card not found or already scanned.'
-        );
-      }
-      const cardTemplate = await CardTemplate.findOne({
-        _id: card.cardTemplate,
-      }).populate('event');
-
-      return cardTemplate?.toObject();
-    } catch (error) {
-      throw new BadRequestError('Internal server error.');
+    if (!card) {
+      throw new NotFoundError('Sličica nije pronađena ili je veće skenirana.');
     }
+    const cardTemplate = await CardTemplate.findOne({
+      _id: card.cardTemplate,
+    })
+      .populate('event')
+      .lean();
+    if (!cardTemplate) {
+      throw new NotFoundError('Sličica nije nađena.');
+    }
+
+    return cardTemplate;
   }
 
   public async findOneById(id: string) {
-    const card = await CardTemplate.findOne({ _id: id });
-    return card?.toObject();
+    const card = await CardTemplate.findOne({ _id: id }).lean();
+    if (!card) {
+      throw new NotFoundError('Sličica nije nađena.');
+    }
+    return card;
   }
 
   public async validateCard(printedCardId: string): Promise<boolean> {
     const printedCard = await PrintedCard.findById(printedCardId);
     if (!printedCard) {
-      throw new Error('Card not found!');
+      throw new NotFoundError('Sličica nije pronađena');
     }
     return !printedCard.isScanned;
   }
@@ -63,33 +60,27 @@ export class CardService {
     printedCardId: string
   ): Promise<string> {
     try {
-      // Find the printed card that's not yet scanned
       const printedCard = await PrintedCard.findOne({
         _id: printedCardId,
         isScanned: false,
       });
-
       if (!printedCard) {
-        return 'QR kod sa sličice je već skeniran i iskorišten!';
+        throw new NotFoundError(
+          'QR kod sa sličice je već skeniran i iskorišten!'
+        );
       }
-      // Check if the card with the same cardTemplateId is already in the user's album
       const userCardExists = await UserCard.findOne({
         userId: new Types.ObjectId(userId),
-        cardTemplateId: printedCard.cardTemplate, // Assuming cardTemplate is stored in printedCard
+        cardTemplateId: printedCard.cardTemplate,
       });
-
       if (userCardExists) {
-        // throw new BadRequestError('Card is already in the album.');
-        return 'Sličica je već dodana u digitalni Almanah.';
+        throw new BadRequestError('Sličica je već dodana u digitalni Almanah.');
       }
-
-      // Mark the printed card as scanned and assign an owner
       printedCard.isScanned = true;
       // @ts-ignore
       printedCard.owner = new Types.ObjectId(userId);
       await printedCard.save();
 
-      // Create a new UserCard
       const userCard = new UserCard({
         userId: new Types.ObjectId(userId),
         printedCardId: printedCard._id,
@@ -98,20 +89,16 @@ export class CardService {
 
       await userCard.save();
 
-      // Find or create the user's album
       let album = await Album.findOne({ owner: userId });
-
       if (!album) {
         album = new Album({ owner: userId, cards: [] });
       }
-
       album.cards.push(userCard._id);
       await album.save();
 
       return 'ok';
     } catch (error) {
-      // Handle errors here
-      throw error;
+      throw new InternalServerError('Interna greška servera.');
     }
   }
 
@@ -121,54 +108,51 @@ export class CardService {
     limit: number = 10
   ) {
     const skip = (page - 1) * limit;
-
-    // Fetch user's album
-    const album = await Album.findOne({ owner: userId }).populate(
-      'cards'
-    );
-    const userCards = album?.cards || [];
-    const printedCardIds = userCards.map(
-      (uc: any) => uc.printedCardId
-    );
-    const printetCardsNew = await PrintedCard.find({
+    const album = await Album.findOne({ owner: userId }).populate('cards');
+    if (!album) {
+      throw new NotFoundError('Album nije pronađen.');
+    }
+    const userCards = album.cards || [];
+    const printedCardIds = userCards.map((uc: any) => uc.printedCardId);
+    const printedCardsNew = await PrintedCard.find({
       _id: { $in: printedCardIds },
     });
-    const newIds = printetCardsNew.map((uc: any) => uc.cardTemplate);
-
-    // Fetch paginated cards
+    if (!printedCardsNew) {
+      throw new NotFoundError('Sličica nije pronađena.');
+    }
+    const newIds = printedCardsNew.map((uc: any) => uc.cardTemplate);
     const cards = await CardTemplate.find({
       _id: { $in: newIds },
     })
       .populate('event')
-      //.sort({ addedAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
+    const formattedCards = cards.map((card) => ({
+      ...card,
+      _id: card._id.toString(),
+    }));
     const totalCount = await CardTemplate.countDocuments({
       _id: { $in: newIds },
     });
-
     return {
-      cards: cards.map((card) => card.toObject()),
+      cards: formattedCards,
       totalCount,
     };
   }
 
   public async getRecentCardsFromAlbum(userId: string) {
-    // Fetch user's album
-    const album = await Album.findOne({ owner: userId }).populate(
-      'cards'
-    );
-    const userCards = album?.cards || [];
-    const printedCardIds = userCards.map(
-      (uc: any) => uc.printedCardId
-    );
-    const printetCardsNew = await PrintedCard.find({
+    const album = await Album.findOne({ owner: userId }).populate('cards');
+    if (!album) {
+      throw new NotFoundError('Album nije pronađen.');
+    }
+    const userCards = album.cards || [];
+    const printedCardIds = userCards.map((uc: any) => uc.printedCardId);
+    const printedCardsNew = await PrintedCard.find({
       _id: { $in: printedCardIds },
     });
-    const newIds = printetCardsNew.map((uc: any) => uc.cardTemplate);
-
-    // Fetch paginated cards
+    const newIds = printedCardsNew.map((uc: any) => uc.cardTemplate);
     const cards = await CardTemplate.find({
       _id: { $in: newIds },
     }).limit(8);
@@ -183,40 +167,29 @@ export class CardService {
     limit: number = 10
   ) {
     const skip = (page - 1) * limit;
-
-    // Fetch user's album
     const album = await Album.findOne({ owner: userId });
     if (!album) {
-      throw new Error('Album not found!');
+      throw new NotFoundError('Album nije pronađen!');
     }
-
-    // Fetch CardTemplates associated with the event with pagination
     const cards = await CardTemplate.find({ event: eventId })
       .populate('event')
       .skip(skip)
-      .limit(limit);
-
-    const totalCount = await CardTemplate.countDocuments({
-      event: eventId,
-    });
+      .limit(limit)
+      .lean();
 
     if (!cards.length) {
-      throw new Error('No cards found for the given event!');
+      throw new NotFoundError('Nisu pronađene sličice ovog prvenstva.');
     }
 
-    // Map over the cards to add the isCollected flag
+    const totalCount = await CardTemplate.countDocuments({ event: eventId });
+
     const cardsWithFlag = await Promise.all(
       cards.map(async (card) => {
-        const cardObj = card.toObject();
-        cardObj._id = card._id.toString();
-
-        // check if there is a matching printed card for the card template
+        card._id = card._id.toString();
         const printedCard = await PrintedCard.findOne({
           cardTemplate: card._id,
           isScanned: true,
         });
-
-        // check if the user has collected the printed card
         const userCard = printedCard
           ? await UserCard.findOne({
               printedCardId: printedCard._id,
@@ -224,9 +197,10 @@ export class CardService {
             })
           : null;
 
-        //@ts-ignore
-        cardObj.isCollected = !!userCard;
-        return cardObj;
+        return {
+          ...card,
+          isCollected: !!userCard,
+        };
       })
     );
 
@@ -237,25 +211,21 @@ export class CardService {
   }
 
   public async getCardStats(userId: string) {
-    // Count of all CardTemplates
     const countOfAllCards = await CardTemplate.countDocuments();
-
-    // Count of collected cards by user
     const album = await Album.findOne({
       owner: new Types.ObjectId(userId),
     });
+    if (!album) {
+      throw new NotFoundError('Album nije pronađen.');
+    }
     const numberOfCollectedCards = album ? album.cards.length : 0;
-
-    // Calculate the percentage of collected cards
     const percentageOfCollectedCards =
       countOfAllCards === 0
         ? 0
         : (numberOfCollectedCards / countOfAllCards) * 100;
     return {
       numberOfCollectedCards,
-      percentageOfCollectedCards: Math.round(
-        percentageOfCollectedCards
-      ),
+      percentageOfCollectedCards: Math.round(percentageOfCollectedCards),
       countOfAllCards,
     };
   }

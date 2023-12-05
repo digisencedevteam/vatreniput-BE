@@ -1,3 +1,4 @@
+import { InternalServerError, NotFoundError } from 'routing-controllers';
 import Event from '../models/Event';
 
 export class EventService {
@@ -13,15 +14,16 @@ export class EventService {
       })
       .sort({ year: 1 })
       .exec();
-    return events.map((event) => ({
-      ...event,
-      _id: event._id.toString(),
-    }));
+    return events;
   }
+
+  public async findOneEventById(eventId: string) {
+    const event = await Event.findById(eventId);
+    return event;
+  }
+
   public async getTopEvents(userId: string): Promise<any[]> {
     try {
-      // Fetch the events with the most collected cards by the user
-      // Aggregate to find the events with the most collected cards by the user
       const events = await Event.aggregate([
         {
           $lookup: {
@@ -54,10 +56,7 @@ export class EventService {
             percentageCollected: {
               $multiply: [
                 {
-                  $divide: [
-                    { $size: '$userCards' },
-                    { $size: '$cards' },
-                  ],
+                  $divide: [{ $size: '$userCards' }, { $size: '$cards' }],
                 },
                 100,
               ],
@@ -72,7 +71,9 @@ export class EventService {
       ]).exec();
       return events;
     } catch (error) {
-      throw new Error('Failed to fetch top events.');
+      throw new InternalServerError(
+        'Neuspješno dohvaćanje sličica s najviše skupljenih prvenstva.'
+      );
     }
   }
 }

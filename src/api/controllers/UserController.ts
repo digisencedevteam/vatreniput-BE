@@ -10,11 +10,13 @@ import {
   BadRequestError,
   Res,
   Delete,
+  UnauthorizedError,
+  NotFoundError,
+  ForbiddenError,
 } from 'routing-controllers';
 import { UserType } from '../../types/index';
 import { AuthService } from '../../auth/AuthService';
 import { UserService } from '../services/UserService';
-import { UserError } from '../errors/UserError';
 import Utils from '../../lib/utils';
 import * as express from 'express';
 
@@ -27,66 +29,71 @@ export default class UserController {
     this.userService = new UserService();
     this.authService = new AuthService();
   }
-  
+
   @Post('/register/:code')
   async register(
     @Param('code') code: string,
     @Body()
     requestBody: UserType
   ) {
-    const savedUser = await this.userService.registerUser(
-      requestBody,
-      code
-    );
+    const savedUser = await this.userService.registerUser(requestBody, code);
 
     return savedUser;
   }
 
   @Post('/login')
   async login(
-  @Body() requestBody: { email: string; password: string; },
-  @Res() response: express.Response
+    @Body() requestBody: { email: string; password: string },
+    @Res() response: express.Response
   ) {
-  const { email, password } = requestBody;
+    const { email, password } = requestBody;
+    if (!email || !password) {
+      throw new BadRequestError('Nedostaje email ili lozinka.');
+    }
 
-  try {
     const user = await this.userService.getUserByEmail(email);
     if (!user) {
-      return response.status(401).json({ message: 'Invalid username or password' });
+      throw new UnauthorizedError(
+        'Pogrešan email ili lozinka. Molim pokušajte ponovno.'
+      );
     }
     if (!user.isEmailVerified) {
-      return response.status(403).json({ message: 'Please verify your email to access the application.' });
+      throw new UnauthorizedError(
+        'Email nije potvrđen. Molimo vas da potvrdite vaš email kako biste pristupili aplikaciji.'
+      );
     }
-
-    const isPasswordValid = await this.authService.verifyPassword(password, user.password || '');
+    const isPasswordValid = await this.authService.verifyPassword(
+      password,
+      user.password || ''
+    );
     if (!isPasswordValid) {
-      return response.status(401).json({ message: 'Invalid username or password' });
+      throw new UnauthorizedError('Pogrešna lozinka. Molim pokušajte ponovno.');
     }
-
     const accessToken = await this.authService.generateAccessToken(user._id);
     const refreshToken = await this.authService.generateRefreshToken(user._id);
-
-    const returnedUser = await this.userService.findOneWithoutPassword(user._id);
+    const returnedUser = await this.userService.findOneWithoutPassword(
+      user._id
+    );
+    if (!returnedUser) {
+      throw new NotFoundError('Korisnik nije pronađen.');
+    }
     response.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      secure: process.env.BACKEND_APP_ENV !== 'production', 
-      sameSite: 'none' 
-    });   
+      secure: process.env.BACKEND_APP_ENV !== 'production',
+      sameSite: 'none',
+    });
 
     return response.json({ accessToken, user: returnedUser });
-  } catch (error) {
-    console.error(error);
-    return response.status(500).json({ message: 'An error occurred while processing your request.' });
   }
-}
 
   @Get('/me')
   @Authorized()
   async getMyInfo(@CurrentUser({ required: true }) user: UserType) {
-    const me = await this.userService.findOneWithoutPassword(
-      user._id
-    );
+    const me = await this.userService.findOneWithoutPassword(user._id);
+    if (!me) {
+      throw new NotFoundError('Korisnik nije pronađen.');
+    }
     return {
       user: me,
     };
@@ -100,44 +107,34 @@ export default class UserController {
     @Body() body: Partial<UserType>
   ) {
     if (Object.keys(body).length === 0) {
-      return new BadRequestError('Missing body.');
+      return new BadRequestError('Nedostaju podaci iz body-a');
     }
-
-    const targerUser = await this.userService.findOneWithoutPassword(
-      userId
-    );
-    if (!targerUser) {
-      return new UserError(404, 'User not found');
+    const targetUser = await this.userService.findOneWithoutPassword(userId);
+    console.log(targetUser);
+    if (!targetUser) {
+      return new NotFoundError('Korisnik nije pronađen.');
     }
-
-    if (targerUser?._id !== user._id.toString()) {
-      throw new UserError(
-        403,
-        'You dont have access to perform this action'
-      );
+    if (targetUser._id !== user._id.toString()) {
+      throw new ForbiddenError('Nemate pristup za izvršavanje ove radnje.');
     }
     if (body.email) {
       const emailResult = Utils.validEmail(body.email);
       if (!emailResult) {
-        return new UserError(400, 'Email address is not vaild.');
+        return new BadRequestError('Email nije validan.');
       }
     }
-
     if (body.username) {
       const userNameResult = Utils.validUsername(body.username);
       if (!userNameResult) {
-        return new UserError(
-          400,
-          'Username should only contain letters, numbers, and dots without spaces, only @-_+. special characters can be used.'
+        return new BadRequestError(
+          'Korisničko ime treba sadržavati samo slova, brojeve i točke bez razmaka, jedino specijalni znakovi @-_+. mogu se koristiti.'
         );
       }
     }
-
     if (body.newPassword) {
       if (body.newPassword.length < 5) {
-        return new UserError(
-          400,
-          'Password must be at least 8 characters and contain one upper case and one number, only !@#$%^&* special characters can be used.'
+        return new BadRequestError(
+          'Lozinka mora biti duga najmanje 8 znakova i sadržavati jedno veliko slovo i jedan broj, jedino se specijalni znakovi !@#$%^&* mogu koristiti.'
         );
       }
     }
@@ -151,24 +148,16 @@ export default class UserController {
     @Param('userId') userId: string,
     @Res() response: any
   ): Promise<void> {
-    const userToDelete =
-      await this.userService.findOneWithoutPassword(userId);
-
+    const userToDelete = await this.userService.findOneWithoutPassword(userId);
     if (!userToDelete) {
-      throw new UserError(404, 'User not found');
+      throw new NotFoundError('Korisnik nije pronađen.');
     }
-
-    const userAccess =
-      await this.userService.checkUserAccessForTargetUser(
-        user,
-        userToDelete
-      );
-
+    const userAccess = await this.userService.checkUserAccessForTargetUser(
+      user,
+      userToDelete
+    );
     if (!userAccess) {
-      throw new UserError(
-        403,
-        'You dont have access to perform this action'
-      );
+      throw new ForbiddenError('Nemate pristup za izvršavanje ove radnje.');
     }
     await this.userService.deleteUser(userId);
     return response.status(200).send({});
