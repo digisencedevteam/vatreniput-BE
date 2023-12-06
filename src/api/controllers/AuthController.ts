@@ -1,5 +1,5 @@
 import { UserService } from '../services/UserService';
-import { AuthService } from '../../auth/AuthService'
+import { AuthService } from '../../auth/AuthService';
 import {
   Get,
   JsonController,
@@ -9,21 +9,21 @@ import {
   Res,
   Post,
   Req,
+  BadRequestError,
 } from 'routing-controllers';
 import { UserType } from '../../types/index';
 import { frontendAppLink } from '../helpers/helper';
 import { Request, Response } from 'express';
 import { UnauthorizedError } from 'routing-controllers';
 
-
 @JsonController('/auth')
 export default class AuthController {
   private userService: UserService;
-  private authService: AuthService
+  private authService: AuthService;
 
   constructor() {
     this.userService = new UserService();
-    this.authService = new AuthService()
+    this.authService = new AuthService();
   }
 
   @Get('/verify-email')
@@ -31,60 +31,60 @@ export default class AuthController {
     @QueryParam('token') token: string,
     @Res() response: Response
   ) {
-    const user = await this.userService.getUserByVerificationToken(
-      token
-    );
-
-    if (!user) {
-      // Handle invalid token. Replace with your own error handling.
-      return response.status(400).json({ message: 'Invalid token' });
+    if (!token) {
+      throw new BadRequestError('Nedostaje token za validaciju email-a.');
     }
-
+    const user = await this.userService.getUserByVerificationToken(token);
+    if (!user) {
+      throw new BadRequestError('Token nije validan.');
+    }
     if (!!user.isEmailVerified) {
       response.redirect(frontendAppLink);
     }
-
     user.isEmailVerified = true;
     user.emailVerificationToken = null;
 
     await user.save();
-
-    // Redirect to frontend email verification success page
     response.redirect(frontendAppLink + 'email-verified');
   }
 
   @Get('/user')
   @Authorized()
   async getUser(@CurrentUser({ required: true }) user: UserType) {
-    const userResponse =
-      await this.userService.findOneWithoutPassword(user._id);
+    const userResponse = await this.userService.findOneWithoutPassword(
+      user._id
+    );
+    if (!userResponse) {
+      throw new UnauthorizedError('Korisnik nije pronađen.');
+    }
+
     return {
       user: userResponse,
     };
   }
 
   @Get('/refresh')
-  async refresh(
-    @Req() request: Request,
-    @Res() response: Response
-  ) {
+  async refresh(@Req() request: Request, @Res() response: Response) {
     const oldRefreshToken = request.cookies['refreshToken'];
     if (!oldRefreshToken) {
-      throw new UnauthorizedError('No refresh token provided');
+      throw new UnauthorizedError('Nedostaje token osvježivanja.');
     }
-    try {
-    const oldRefreshTokenData = await this.authService.validateRefreshToken(oldRefreshToken);    
+    const oldRefreshTokenData = await this.authService.validateRefreshToken(
+      oldRefreshToken
+    );
     if (!oldRefreshTokenData || typeof oldRefreshTokenData === 'string') {
-      throw new UnauthorizedError('Invalid refresh token');    
+      throw new UnauthorizedError('Token osvježivanja nije dostupan.');
     }
     const refreshTokenExpirationDate = new Date(oldRefreshTokenData.exp * 1000);
     const currentDate = new Date();
     if (refreshTokenExpirationDate < currentDate) {
-      throw new UnauthorizedError('Refresh token expired');
+      throw new UnauthorizedError('Token osvježivanja je istekao.');
     }
-    const user = await this.userService.findOneWithoutPassword(oldRefreshTokenData.userId);
+    const user = await this.userService.findOneWithoutPassword(
+      oldRefreshTokenData.userId
+    );
     if (!user) {
-      throw new UnauthorizedError('User not found');
+      throw new UnauthorizedError('Korisnik nije pronađen.');
     }
     await this.userService.updateLastLogin(user._id);
     const accessToken = await this.authService.generateAccessToken(user._id);
@@ -96,10 +96,8 @@ export default class AuthController {
       sameSite: 'none' as 'none',
     };
     response.cookie('refreshToken', refreshToken, cookieOptions);
+
     return { accessToken };
-  } catch (error) {
-    throw new UnauthorizedError('Failed to refresh token');
-  }
   }
 
   @Post('/logout')
@@ -108,8 +106,9 @@ export default class AuthController {
       httpOnly: true,
       secure: true,
       sameSite: 'none',
-      expires: new Date(0) 
-  });
-  return response.sendStatus(200);
-}
+      expires: new Date(0),
+    });
+
+    return response.sendStatus(200);
+  }
 }

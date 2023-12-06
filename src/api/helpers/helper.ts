@@ -12,9 +12,7 @@ const sendgridEmailTemplateIdEmailConfirm =
  * @param {number} length - The length of the token.
  * @returns {Promise<string>} A promise that resolves to the generated token.
  */
-export async function generateSecureToken(
-  length: number
-): Promise<string> {
+export async function generateSecureToken(length: number): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     crypto.randomBytes(length, (err, buffer) => {
       if (err) {
@@ -28,10 +26,7 @@ export async function generateSecureToken(
 }
 
 // Function to send a password reset email
-export async function sendPasswordResetEmail(
-  email: string,
-  token: string
-) {
+export async function sendPasswordResetEmail(email: string, token: string) {
   const msg = {
     to: email,
     from: 'david.kraljic@digisence.agency',
@@ -66,13 +61,12 @@ export async function sendVerificationEmail(
     console.log('Email sent successfully.');
   } catch (error: any) {
     console.error('Error sending password reset email:', error);
+    // uumjesto loga napraviti throw
   }
 }
 
-export const isEnvDevelopment =
-  process.env.BACKEND_APP_ENV === 'development';
-export const isEnvProduction =
-  process.env.BACKEND_APP_ENV === 'production';
+export const isEnvDevelopment = process.env.BACKEND_APP_ENV === 'development';
+export const isEnvProduction = process.env.BACKEND_APP_ENV === 'production';
 
 type AtEnvProps = {
   defaultValue: string;
@@ -106,3 +100,15 @@ export const frontendAppLink = atEnv({
   development: 'https://vatreniput-fe.vercel.app',
   production: 'https://vatreniput-fe.vercel.app',
 });
+
+export const isValidDate = (dateString: string): boolean => {
+  if (!dateString) {
+    return false;
+  }
+  const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+  if (!iso8601Regex.test(dateString)) {
+    return false;
+  }
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date.getTime());
+};

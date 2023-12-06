@@ -9,6 +9,8 @@ import {
   BadRequestError,
   Patch,
   Res,
+  NotFoundError,
+  InternalServerError,
 } from 'routing-controllers';
 import { Response } from 'express';
 import { UserType } from '../../types/index';
@@ -39,8 +41,9 @@ export default class CardController {
   ) {
     const { cardId } = body;
     if (!cardId) {
-      throw new BadRequestError('Card ID is required param.');
+      throw new BadRequestError('Nedostaje ID sličice.');
     }
+
     return await this.cardService.addCardToAlbum(user._id, cardId);
   }
 
@@ -51,21 +54,18 @@ export default class CardController {
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 10
   ) {
-    // Ensure `page` and `limit` are valid numbers and fall within reasonable bounds
     if (page < 1) {
-      throw new BadRequestError('Invalid page value.');
+      throw new BadRequestError('Stranica ne postoji.');
     }
-
-    // Limit the maximum number of cards fetched in a single request to 100 (or your preferred max)
     if (limit < 1 || limit > 100) {
-      throw new BadRequestError('Invalid limit value.');
+      throw new BadRequestError('Stranica ne postoji.');
     }
-    const { cards, totalCount } =
-      await this.cardService.getAllCardsFromAlbum(
-        user._id,
-        Number(page),
-        Number(limit)
-      );
+    const { cards, totalCount } = await this.cardService.getAllCardsFromAlbum(
+      user._id,
+      Number(page),
+      Number(limit)
+    );
+
     return {
       cards,
       totalCount,
@@ -73,15 +73,24 @@ export default class CardController {
   }
 
   @Get('/details/:printedCardId')
-  async getCardDetails(
-    @Param('printedCardId') printedCardId: string
-  ) {
+  async getCardDetails(@Param('printedCardId') printedCardId: string) {
+    if (!printedCardId) {
+      throw new BadRequestError('Nedostaje ID sličice.');
+    }
+    const isCardValid = this.cardService.validateCard(printedCardId);
+    if (!isCardValid) {
+      throw new BadRequestError('Sličica nije važeća.');
+    }
+
     return this.cardService.getCardDetails(printedCardId);
   }
 
   @Get('/:code')
   @Authorized()
   async getCardByCode(@Param('code') code: string) {
+    if (!code) {
+      throw new BadRequestError('Nedostaje kod sličice.');
+    }
     const card = await this.cardService.getCardWithEventDetails(code);
 
     return card;
@@ -89,6 +98,9 @@ export default class CardController {
 
   @Get('/validate/:code')
   async validateCardByCode(@Param('code') code: string) {
+    if (!code) {
+      throw new BadRequestError('Nedostaje kod sličice.');
+    }
     const isCardValid = await this.cardService.validateCard(code);
     return {
       isCardValid,
@@ -104,20 +116,25 @@ export default class CardController {
     @QueryParam('limit') limit: number = 10
   ) {
     if (page < 1) {
-      throw new BadRequestError('Invalid page value.');
+      throw new BadRequestError('Stranica nije pronađena.');
     }
-
     if (limit < 1 || limit > 100) {
-      throw new BadRequestError('Invalid limit value.');
+      throw new BadRequestError('Stranica nije pronađena.');
     }
+    if (!eventId) {
+      throw new BadRequestError('Nedostaje ID prvenstva.');
+    }
+    const event = this.eventService.findOneEventById(eventId);
+    if (!event) {
+      throw new NotFoundError('Prvenstvo nije pronađeno.');
+    }
+    const { cards, totalCount } = await this.cardService.getCardsForEvent(
+      eventId,
+      user._id,
+      Number(page),
+      Number(limit)
+    );
 
-    const { cards, totalCount } =
-      await this.cardService.getCardsForEvent(
-        eventId,
-        user._id,
-        Number(page),
-        Number(limit)
-      );
     return {
       cards,
       totalCount,
@@ -126,9 +143,7 @@ export default class CardController {
 
   @Get('/stats/all')
   @Authorized()
-  async getCardStats(
-    @CurrentUser({ required: true }) user: UserType
-  ) {
+  async getCardStats(@CurrentUser({ required: true }) user: UserType) {
     return await this.cardService.getCardStats(user._id);
   }
 
@@ -140,31 +155,26 @@ export default class CardController {
   ) {
     try {
       const userId = user._id;
-
-      // Execute all asynchronous operations in parallel
-      const [cardStats, cards, topEvents, quizzes, votings] =
-        await Promise.all([
+      const [cardStats, cards, topEvents, quizzes, votings] = await Promise.all(
+        [
           this.cardService.getCardStats(userId),
           this.cardService.getRecentCardsFromAlbum(userId),
           this.eventService.getTopEvents(userId),
           this.quizService.getRecentQuizzes(userId),
           this.votingService.getRecentUnvotedVotings(userId),
-        ]);
-
+        ]
+      );
       const result = {
         ...cardStats,
         cards,
         topEvents,
         quizzes,
-        votings, // Fixed typo from 'votingsÍ' to 'votings'
+        votings,
       };
 
       return res.json(result);
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        error: 'An error occurred while fetching dashboard stats',
-      });
+      throw new InternalServerError('Interna greška servera.');
     }
   }
 }
