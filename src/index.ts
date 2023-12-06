@@ -12,10 +12,10 @@ const app = express();
 const cors = require('cors');
 
 const corsOptions = {
-  origin: frontendAppLink, 
-  credentials: true, 
+  origin: frontendAppLink,
+  credentials: true,
   optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'OPTIONS', 'PATCH', 'PUT', 'DELETE'],
 };
 
 // Connect to MongoDB
