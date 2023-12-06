@@ -202,6 +202,11 @@ export class QuizService {
     };
   }
 
+  public async findQuizById(quizId: string) {
+    const quiz = await Quiz.findById(quizId);
+    return quiz;
+  }
+
   public async createQuizWithQuestions(
     createQuizDto: CreateQuizBody
   ): Promise<any> {

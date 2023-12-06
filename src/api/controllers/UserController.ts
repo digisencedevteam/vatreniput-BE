@@ -36,8 +36,10 @@ export default class UserController {
     @Body()
     requestBody: UserType
   ) {
+    if (!code) {
+      throw new BadRequestError('Nedostaje kod albuma.');
+    }
     const savedUser = await this.userService.registerUser(requestBody, code);
-
     return savedUser;
   }
 
@@ -50,7 +52,6 @@ export default class UserController {
     if (!email || !password) {
       throw new BadRequestError('Nedostaje email ili lozinka.');
     }
-
     const user = await this.userService.getUserByEmail(email);
     if (!user) {
       throw new UnauthorizedError(

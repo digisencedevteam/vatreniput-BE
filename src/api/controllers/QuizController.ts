@@ -38,10 +38,6 @@ export default class QuizController {
     @QueryParam('limit') limit: number = 5,
     @QueryParam('search') searchQuery?: string
   ) {
-    const foundUser = this.userService.findOneById(user._id);
-    if (!foundUser) {
-      throw new NotFoundError('Korisnik nije pronađen.');
-    }
     const userId = user._id;
     const quizzes = await this.quizService.getUnresolvedQuizzes(
       Number(page),
@@ -60,10 +56,6 @@ export default class QuizController {
     @QueryParam('page') page: number = 1,
     @QueryParam('limit') limit: number = 5
   ) {
-    const foundUser = this.userService.findOneById(user._id);
-    if (!foundUser) {
-      throw new NotFoundError('Korisnik nije pronađen.');
-    }
     const userId = user._id;
     const quizzes = await this.quizService.getResolvedQuizzesWithResults(
       Number(page),
@@ -98,6 +90,10 @@ export default class QuizController {
   ) {
     if (!quizId) {
       throw new BadRequestError('Nedostaje ID kviza.');
+    }
+    const quiz = await this.quizService.findQuizById(quizId);
+    if (!quiz) {
+      throw new NotFoundError('Kviz nije pronađen.');
     }
     const result = await this.quizService.getBestQuizResults(
       quizId,
@@ -216,6 +212,13 @@ export default class QuizController {
     @Param('quizId') quizId: string,
     @CurrentUser({ required: true }) user: UserType
   ) {
+    if (!quizId) {
+      throw new BadRequestError('Nedostaje ID kviza.');
+    }
+    const quiz = await this.quizService.findQuizById(quizId);
+    if (!quiz) {
+      throw new NotFoundError('Kviz nije pronađen.');
+    }
     const userId = user._id;
     await this.quizService.startQuiz(userId, quizId);
 
@@ -228,6 +231,11 @@ export default class QuizController {
     @Param('quizId') quizId: string,
     @Body() updatedQuizData: CreateQuizBody
   ) {
+    if (!quizId || !updatedQuizData) {
+      throw new BadRequestError(
+        'Nedostaju podaci potrebni za ažuriranje kviza.'
+      );
+    }
     const editedQuiz = await this.quizService.editQuiz(quizId, updatedQuizData);
     return editedQuiz;
   }
