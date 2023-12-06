@@ -4,8 +4,10 @@ import {
   Authorized,
   Param,
   CurrentUser,
+  BadRequestError,
 } from 'routing-controllers';
 import { EventService } from '../services/EventService';
+import { UserType } from '../../types/index';
 
 @JsonController('/event')
 export default class EventController {
@@ -19,9 +21,13 @@ export default class EventController {
   @Authorized()
   async getUserCardsForEvent(
     @Param('eventId') eventId: string,
-    @CurrentUser() user: any
+    @CurrentUser({ required: true }) user: UserType
   ) {
-    return await this.eventService.getUserCardsForEvent(eventId, user.id);
+    const event = this.eventService.findOneEventById(eventId);
+    if (!event) {
+      throw new BadRequestError('Prvenstvo nije pronađeno');
+    }
+    return await this.eventService.getUserCardsForEvent(eventId, user._id);
   }
 
   @Get('/all')
