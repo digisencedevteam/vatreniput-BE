@@ -25,7 +25,7 @@ export class CardService {
     });
 
     if (!card) {
-      throw new NotFoundError('Sličica nije pronađena ili je već skenirana.');
+      throw new NotFoundError('Sličica nije pronađena ili je veće skenirana.');
     }
     const cardTemplate = await CardTemplate.findOne({
       _id: card.cardTemplate,
@@ -55,44 +55,51 @@ export class CardService {
     return !printedCard.isScanned;
   }
 
-  public async addCardToAlbum(userId: string, printedCardId: string) {
-    const printedCard = await PrintedCard.findOne({
-      _id: printedCardId,
-      isScanned: false,
-    });
-    if (!printedCard) {
-      throw new NotFoundError(
-        'QR kod sa sličice je već skeniran i iskorišten!'
-      );
+  public async addCardToAlbum(
+    userId: string,
+    printedCardId: string
+  ): Promise<string> {
+    try {
+      const printedCard = await PrintedCard.findOne({
+        _id: printedCardId,
+        isScanned: false,
+      });
+      if (!printedCard) {
+        throw new NotFoundError(
+          'QR kod sa sličice je već skeniran i iskorišten!'
+        );
+      }
+      const userCardExists = await UserCard.findOne({
+        userId: new Types.ObjectId(userId),
+        cardTemplateId: printedCard.cardTemplate,
+      });
+      if (userCardExists) {
+        throw new BadRequestError('Sličica je već dodana u digitalni Almanah.');
+      }
+      printedCard.isScanned = true;
+      // @ts-ignore
+      printedCard.owner = new Types.ObjectId(userId);
+      await printedCard.save();
+
+      const userCard = new UserCard({
+        userId: new Types.ObjectId(userId),
+        printedCardId: printedCard._id,
+        cardTemplateId: printedCard.cardTemplate,
+      });
+
+      await userCard.save();
+
+      let album = await Album.findOne({ owner: userId });
+      if (!album) {
+        album = new Album({ owner: userId, cards: [] });
+      }
+      album.cards.push(userCard._id);
+      await album.save();
+
+      return 'ok';
+    } catch (error) {
+      throw new InternalServerError('Interna greška servera.');
     }
-    const userCardExists = await UserCard.findOne({
-      userId: new Types.ObjectId(userId),
-      cardTemplateId: printedCard.cardTemplate,
-    });
-    if (userCardExists) {
-      throw new BadRequestError('Sličica je već dodana u digitalni Almanah.');
-    }
-    printedCard.isScanned = true;
-    // @ts-ignore
-    printedCard.owner = new Types.ObjectId(userId);
-    await printedCard.save();
-
-    const userCard = new UserCard({
-      userId: new Types.ObjectId(userId),
-      printedCardId: printedCard._id,
-      cardTemplateId: printedCard.cardTemplate,
-    });
-
-    await userCard.save();
-
-    let album = await Album.findOne({ owner: userId });
-    if (!album) {
-      album = new Album({ owner: userId, cards: [] });
-    }
-    album.cards.push(userCard._id);
-    await album.save();
-
-    return { message: 'ok' };
   }
 
   public async getAllCardsFromAlbum(

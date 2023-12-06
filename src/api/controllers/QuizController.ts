@@ -154,7 +154,7 @@ export default class QuizController {
       duration: number;
     }
   ) {
-    if (!userId || !quizId || !duration) {
+    if (!userId || !quizId || !score || !duration) {
       throw new BadRequestError('Nepotpuni podaci potrebni za slanje kviza.');
     }
     const result = await this.quizService.submitQuizResult(
