@@ -2,11 +2,10 @@ import {
   Get,
   JsonController,
   Authorized,
-  Res,
-  NotFoundError,
+  Param,
+  CurrentUser,
 } from 'routing-controllers';
 import { EventService } from '../services/EventService';
-import { Response } from 'express';
 
 @JsonController('/event')
 export default class EventController {
@@ -16,14 +15,18 @@ export default class EventController {
     this.eventService = new EventService();
   }
 
+  @Get('/user-cards/:eventId')
+  @Authorized()
+  async getUserCardsForEvent(
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: any
+  ) {
+    return await this.eventService.getUserCardsForEvent(eventId, user.id);
+  }
+
   @Get('/all')
   @Authorized()
-  async getAllEvents(@Res() res: Response) {
-    const events = await this.eventService.getAllEvents();
-    if (!events) {
-      throw new NotFoundError('Trenutno nemamo dostupnih prvenstava.');
-    }
-
-    return res.json(events);
+  async getAllEvents() {
+    return await this.eventService.getAllEvents();
   }
 }
