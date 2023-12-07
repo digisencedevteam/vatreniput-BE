@@ -1,15 +1,16 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, ObjectId } from 'mongoose';
 
 export interface IUserCard extends Document {
-  userId: Schema.Types.ObjectId; // Reference to the user
-  printedCardId: Schema.Types.ObjectId; // Reference to the PrintedCard instance
-  addedAt: Date; // Date when the card was added to the user's collection
+  cardTemplateId: Schema.Types.ObjectId;
+  userId: Schema.Types.ObjectId;
+  printedCardId: Schema.Types.ObjectId;
+  addedAt: Date;
 }
 
 const UserCardSchema: Schema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
-    ref: 'User', // Assuming your user model is named 'User'
+    ref: 'User',
     required: true,
   },
   printedCardId: {
