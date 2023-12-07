@@ -7,7 +7,7 @@ import Album from '../models/Album';
 import { Types } from 'mongoose';
 import CardTemplate from '../models/CardTemplate';
 import PrintedCard from '../models/PrintedCard';
-import UserCard from '../models/UserCard';
+import UserCard, { IUserCard } from '../models/UserCard';
 
 export class CardService {
   public async getCardWithEventDetails(cardId: string) {
@@ -19,24 +19,27 @@ export class CardService {
   }
 
   public async getCardDetails(printedCardId: string) {
-    const card = await PrintedCard.findOne({
-      _id: printedCardId,
-      isScanned: false,
-    });
+    const printedCard = await PrintedCard.findById(printedCardId);
 
-    if (!card) {
-      throw new NotFoundError('Sličica nije pronađena ili je veće skenirana.');
+    if (!printedCard) {
+      throw new NotFoundError('Sličica nije pronađena ili je već skenirana.');
     }
+
     const cardTemplate = await CardTemplate.findOne({
-      _id: card.cardTemplate,
+      _id: printedCard.cardTemplate,
     })
       .populate('event')
       .lean();
+
     if (!cardTemplate) {
       throw new NotFoundError('Sličica nije nađena.');
     }
 
-    return cardTemplate;
+    return {
+      ...cardTemplate,
+      isScanned: printedCard.isScanned,
+      printedCardId: printedCardId,
+    };
   }
 
   public async findOneById(id: string) {
@@ -108,36 +111,30 @@ export class CardService {
     limit: number = 10
   ) {
     const skip = (page - 1) * limit;
-    const album = await Album.findOne({ owner: userId }).populate('cards');
+    const album = await Album.findOne({ owner: userId }).populate({
+      path: 'cards',
+      populate: [{ path: 'printedCardId' }, { path: 'cardTemplateId' }],
+    });
+
     if (!album) {
       throw new NotFoundError('Album nije pronađen.');
     }
-    const userCards = album.cards || [];
-    const printedCardIds = userCards.map((uc: any) => uc.printedCardId);
-    const printedCardsNew = await PrintedCard.find({
-      _id: { $in: printedCardIds },
-    });
-    if (!printedCardsNew) {
-      throw new NotFoundError('Sličica nije pronađena.');
-    }
-    const newIds = printedCardsNew.map((uc: any) => uc.cardTemplate);
-    const cards = await CardTemplate.find({
-      _id: { $in: newIds },
-    })
-      .populate('event')
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const userCards = album.cards.map((card) => card as any) as IUserCard[];
 
-    const formattedCards = cards.map((card) => ({
-      ...card,
-      _id: card._id.toString(),
-    }));
-    const totalCount = await CardTemplate.countDocuments({
-      _id: { $in: newIds },
+    const cardsData = userCards.slice(skip, skip + limit).map((uc) => {
+      const cardTemplate = uc.cardTemplateId as any;
+      const printedCardId = uc.printedCardId as any;
+
+      return {
+        ...cardTemplate._doc,
+        printedCardId: printedCardId ? printedCardId._id.toString() : null,
+      };
     });
+
+    const totalCount = userCards.length;
+
     return {
-      cards: formattedCards,
+      cards: cardsData,
       totalCount,
     };
   }
