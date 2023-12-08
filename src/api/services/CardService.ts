@@ -230,11 +230,11 @@ export class CardService {
       cards.map(async (card) => {
         const cardObj: any = card.toObject();
         cardObj._id = card._id.toString();
-
         // check if there is a matching printed card for the card template
         const printedCard = await PrintedCard.findOne({
           cardTemplate: card._id,
           isScanned: true,
+          owner: userId,
         });
 
         // check if the user has collected the printed card
