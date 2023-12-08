@@ -11,7 +11,9 @@ import UserCard, { IUserCard } from '../models/UserCard';
 
 export class CardService {
   public async getCardWithEventDetails(cardId: string) {
-    const card = await CardTemplate.findById(cardId).populate('event').lean();
+    const card = await CardTemplate.findById(cardId)
+      .populate('event')
+      .lean();
     if (!card) {
       throw new NotFoundError('Sličica nije pronađena.');
     }
@@ -22,7 +24,9 @@ export class CardService {
     const printedCard = await PrintedCard.findById(printedCardId);
 
     if (!printedCard) {
-      throw new NotFoundError('Sličica nije pronađena ili je već skenirana.');
+      throw new NotFoundError(
+        'Sličica nije pronađena ili je već skenirana.'
+      );
     }
 
     const cardTemplate = await CardTemplate.findOne({
@@ -77,7 +81,9 @@ export class CardService {
         cardTemplateId: printedCard.cardTemplate,
       });
       if (userCardExists) {
-        throw new BadRequestError('Sličica je već dodana u digitalni Almanah.');
+        throw new BadRequestError(
+          'Sličica je već dodana u digitalni Almanah.'
+        );
       }
       printedCard.isScanned = true;
       // @ts-ignore
@@ -113,14 +119,19 @@ export class CardService {
     const skip = (page - 1) * limit;
     const album = await Album.findOne({ owner: userId }).populate({
       path: 'cards',
-      populate: [{ path: 'printedCardId' }, { path: 'cardTemplateId' }],
+      populate: [
+        { path: 'printedCardId' },
+        { path: 'cardTemplateId' },
+      ],
     });
 
     if (!album) {
       throw new NotFoundError('Album nije pronađen.');
     }
 
-    const userCards = album.cards.map((card) => card as any) as IUserCard[];
+    const userCards = album.cards.map(
+      (card) => card as any
+    ) as IUserCard[];
 
     const cardsData = await Promise.all(
       userCards.slice(skip, skip + limit).map(async (uc) => {
@@ -133,7 +144,9 @@ export class CardService {
 
         return {
           ...cardTemplate._doc,
-          printedCardId: printedCardId ? printedCardId._id.toString() : null,
+          printedCardId: printedCardId
+            ? printedCardId._id.toString()
+            : null,
           isCollected: !!isCollected,
         };
       })
@@ -149,14 +162,19 @@ export class CardService {
   public async getRecentCardsFromAlbum(userId: string) {
     const album = await Album.findOne({ owner: userId }).populate({
       path: 'cards',
-      populate: [{ path: 'printedCardId' }, { path: 'cardTemplateId' }],
+      populate: [
+        { path: 'printedCardId' },
+        { path: 'cardTemplateId' },
+      ],
     });
 
     if (!album) {
       throw new NotFoundError('Album nije pronađen.');
     }
 
-    const userCards = album.cards.map((card) => card as any) as IUserCard[];
+    const userCards = album.cards.map(
+      (card) => card as any
+    ) as IUserCard[];
 
     const cardsData = await Promise.all(
       userCards.map(async (uc) => {
@@ -169,7 +187,9 @@ export class CardService {
 
         return {
           ...cardTemplate._doc,
-          printedCardId: printedCardId ? printedCardId._id.toString() : null,
+          printedCardId: printedCardId
+            ? printedCardId._id.toString()
+            : null,
           isCollected: !!isCollected,
         };
       })
@@ -184,29 +204,40 @@ export class CardService {
     limit: number = 10
   ) {
     const skip = (page - 1) * limit;
+
+    // Fetch user's album
     const album = await Album.findOne({ owner: userId });
     if (!album) {
-      throw new NotFoundError('Album nije pronađen!');
+      throw new Error('Album not found!');
     }
+
+    // Fetch CardTemplates associated with the event with pagination
     const cards = await CardTemplate.find({ event: eventId })
       .populate('event')
       .skip(skip)
-      .limit(limit)
-      .lean();
+      .limit(limit);
+
+    const totalCount = await CardTemplate.countDocuments({
+      event: eventId,
+    });
 
     if (!cards.length) {
-      throw new NotFoundError('Nisu pronađene sličice ovog prvenstva.');
+      throw new Error('No cards found for the given event!');
     }
 
-    const totalCount = await CardTemplate.countDocuments({ event: eventId });
-
+    // Map over the cards to add the isCollected flag
     const cardsWithFlag = await Promise.all(
       cards.map(async (card) => {
-        card._id = card._id.toString();
+        const cardObj: any = card.toObject();
+        cardObj._id = card._id.toString();
+
+        // check if there is a matching printed card for the card template
         const printedCard = await PrintedCard.findOne({
           cardTemplate: card._id,
           isScanned: true,
         });
+
+        // check if the user has collected the printed card
         const userCard = printedCard
           ? await UserCard.findOne({
               printedCardId: printedCard._id,
@@ -214,11 +245,11 @@ export class CardService {
             })
           : null;
 
-        return {
-          ...card,
-          isCollected: !!userCard,
-          printedCardId: printedCard ? printedCard._id.toString() : null,
-        };
+        //@ts-ignore
+        cardObj.isCollected = !!userCard;
+        cardObj.printedCardId =
+          !!userCard && printedCard ? printedCard._id : null;
+        return cardObj;
       })
     );
 
@@ -242,7 +273,9 @@ export class CardService {
         : (numberOfCollectedCards / countOfAllCards) * 100;
     return {
       numberOfCollectedCards,
-      percentageOfCollectedCards: Math.round(percentageOfCollectedCards),
+      percentageOfCollectedCards: Math.round(
+        percentageOfCollectedCards
+      ),
       countOfAllCards,
     };
   }
