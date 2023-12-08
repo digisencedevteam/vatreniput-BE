@@ -13,10 +13,10 @@ export class EventService {
       .sort({ year: 1 })
       .lean();
 
-    events = events.map((event) => ({
-      ...event,
-      _id: event._id.toString(),
-    }));
+    // events = events.map((event) => ({
+    //   ...event,
+    //   _id: event._id.toString(),
+    // }));
 
     return events;
   }
