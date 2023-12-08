@@ -1,24 +1,30 @@
-import { InternalServerError, NotFoundError } from 'routing-controllers';
+import {
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+} from 'routing-controllers';
 import Event from '../models/Event';
 import mongoose from 'mongoose';
 
 export class EventService {
   public async getAllEvents() {
-    const events = await Event.find()
-      .lean()
-      .select({
-        _id: 1,
-        name: 1,
-        location: 1,
-        year: 1,
-        description: 1,
-      })
+    let events = await Event.find()
+      .select({ _id: 1, name: 1, location: 1, year: 1, description: 1 })
       .sort({ year: 1 })
-      .exec();
+      .lean();
+
+    events = events.map((event) => ({
+      ...event,
+      _id: event._id.toString(),
+    }));
+
     return events;
   }
 
   public async findOneEventById(eventId: string) {
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      throw new BadRequestError('Invalid event ID');
+    }
     const event = await Event.findById(eventId);
     return event;
   }
