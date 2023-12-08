@@ -248,7 +248,9 @@ export class CardService {
         //@ts-ignore
         cardObj.isCollected = !!userCard;
         cardObj.printedCardId =
-          !!userCard && printedCard ? printedCard._id : null;
+          !!userCard && printedCard
+            ? printedCard._id?.toString()
+            : null;
         return cardObj;
       })
     );
