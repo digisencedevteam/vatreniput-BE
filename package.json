@@ -9,6 +9,7 @@
     "build": "tsc",
     "seed": "ts-node -P tsconfig.json src/scripts/seedDatabase.ts",
     "generate": "ts-node -P tsconfig.json src/scripts/generateQRCodes.ts",
+    "createCardTemplates": "ts-node -P tsconfig.json src/scripts/generateCardTemplates.ts"
   },
   "engines": {
     "node": "14.19.2"
