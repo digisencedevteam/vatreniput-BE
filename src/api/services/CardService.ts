@@ -140,23 +140,28 @@ export class CardService {
   }
 
   public async getRecentCardsFromAlbum(userId: string) {
-    const album = await Album.findOne({ owner: userId }).populate('cards');
+    const album = await Album.findOne({ owner: userId }).populate({
+      path: 'cards',
+      populate: [{ path: 'printedCardId' }, { path: 'cardTemplateId' }],
+    });
+
     if (!album) {
       throw new NotFoundError('Album nije pronađen.');
     }
-    const userCards = album.cards || [];
-    const printedCardIds = userCards.map((uc: any) => uc.printedCardId);
-    const printedCardsNew = await PrintedCard.find({
-      _id: { $in: printedCardIds },
+
+    const userCards = album.cards.map((card) => card as any) as IUserCard[];
+
+    const cardsData = userCards.map((uc) => {
+      const cardTemplate = uc.cardTemplateId as any;
+      const printedCardId = uc.printedCardId as any;
+
+      return {
+        ...cardTemplate._doc,
+        printedCardId: printedCardId ? printedCardId._id.toString() : null,
+      };
     });
-    const newIds = printedCardsNew.map((uc: any) => uc.cardTemplate);
-    const cards = await CardTemplate.find({
-      _id: { $in: newIds },
-    }).limit(8);
-
-    return cards;
+    return cardsData.slice(0, 8);
   }
-
   public async getCardsForEvent(
     eventId: string,
     userId: string,
