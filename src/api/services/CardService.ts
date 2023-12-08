@@ -119,17 +119,25 @@ export class CardService {
     if (!album) {
       throw new NotFoundError('Album nije pronađen.');
     }
+
     const userCards = album.cards.map((card) => card as any) as IUserCard[];
 
-    const cardsData = userCards.slice(skip, skip + limit).map((uc) => {
-      const cardTemplate = uc.cardTemplateId as any;
-      const printedCardId = uc.printedCardId as any;
+    const cardsData = await Promise.all(
+      userCards.slice(skip, skip + limit).map(async (uc) => {
+        const cardTemplate = uc.cardTemplateId as any;
+        const printedCardId = uc.printedCardId as any;
+        const isCollected = await UserCard.exists({
+          userId: new Types.ObjectId(userId),
+          printedCardId: printedCardId._id,
+        });
 
-      return {
-        ...cardTemplate._doc,
-        printedCardId: printedCardId ? printedCardId._id.toString() : null,
-      };
-    });
+        return {
+          ...cardTemplate._doc,
+          printedCardId: printedCardId ? printedCardId._id.toString() : null,
+          isCollected: !!isCollected,
+        };
+      })
+    );
 
     const totalCount = userCards.length;
 
@@ -138,25 +146,37 @@ export class CardService {
       totalCount,
     };
   }
-
   public async getRecentCardsFromAlbum(userId: string) {
-    const album = await Album.findOne({ owner: userId }).populate('cards');
+    const album = await Album.findOne({ owner: userId }).populate({
+      path: 'cards',
+      populate: [{ path: 'printedCardId' }, { path: 'cardTemplateId' }],
+    });
+
     if (!album) {
       throw new NotFoundError('Album nije pronađen.');
     }
-    const userCards = album.cards || [];
-    const printedCardIds = userCards.map((uc: any) => uc.printedCardId);
-    const printedCardsNew = await PrintedCard.find({
-      _id: { $in: printedCardIds },
-    });
-    const newIds = printedCardsNew.map((uc: any) => uc.cardTemplate);
-    const cards = await CardTemplate.find({
-      _id: { $in: newIds },
-    }).limit(8);
 
-    return cards;
+    const userCards = album.cards.map((card) => card as any) as IUserCard[];
+
+    const cardsData = await Promise.all(
+      userCards.map(async (uc) => {
+        const cardTemplate = uc.cardTemplateId as any;
+        const printedCardId = uc.printedCardId as any;
+        const isCollected = await UserCard.exists({
+          userId: new Types.ObjectId(userId),
+          printedCardId: printedCardId._id,
+        });
+
+        return {
+          ...cardTemplate._doc,
+          printedCardId: printedCardId ? printedCardId._id.toString() : null,
+          isCollected: !!isCollected,
+        };
+      })
+    );
+
+    return cardsData.slice(0, 8);
   }
-
   public async getCardsForEvent(
     eventId: string,
     userId: string,
@@ -197,6 +217,7 @@ export class CardService {
         return {
           ...card,
           isCollected: !!userCard,
+          printedCardId: printedCard ? printedCard._id.toString() : null,
         };
       })
     );
@@ -206,7 +227,6 @@ export class CardService {
       totalCount,
     };
   }
-
   public async getCardStats(userId: string) {
     const countOfAllCards = await CardTemplate.countDocuments();
     const album = await Album.findOne({
