@@ -73,10 +73,10 @@ export default class CardController {
     };
   }
 
-  @Get('/details/:printedCardId')
+  @Get('/details/:printedCardId/:userId')
   async getCardDetails(
     @Param('printedCardId') printedCardId: string,
-    @Body() body: { userId?: string }
+    @Param('userId') userId?: string
   ) {
     if (!printedCardId) {
       throw new BadRequestError('Nedostaje ID sličice.');
@@ -86,10 +86,7 @@ export default class CardController {
       throw new BadRequestError('Sličica nije važeća.');
     }
 
-    return this.cardService.getCardDetails(
-      printedCardId,
-      body?.userId
-    );
+    return this.cardService.getCardDetails(printedCardId, userId);
   }
 
   @Get('/:code')
