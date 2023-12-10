@@ -11,7 +11,6 @@ import {
   Res,
   NotFoundError,
   InternalServerError,
-  QueryParams,
 } from 'routing-controllers';
 import { Response } from 'express';
 import { UserType } from '../../types/index';
@@ -77,7 +76,7 @@ export default class CardController {
   @Get('/details/:printedCardId')
   async getCardDetails(
     @Param('printedCardId') printedCardId: string,
-    @QueryParams() params: any
+    @QueryParam('userId') userId: string
   ) {
     if (!printedCardId) {
       throw new BadRequestError('Nedostaje ID sličice.');
@@ -86,7 +85,6 @@ export default class CardController {
     if (!isCardValid) {
       throw new BadRequestError('Sličica nije važeća.');
     }
-    const userId = !!params?.userId ? params.userId : null;
     return this.cardService.getCardDetails(printedCardId, userId);
   }
 
