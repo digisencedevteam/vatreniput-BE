@@ -20,7 +20,10 @@ export class CardService {
     return card;
   }
 
-  public async getCardDetails(printedCardId: string) {
+  public async getCardDetails(
+    printedCardId: string,
+    userId?: string
+  ) {
     const printedCard = await PrintedCard.findById(printedCardId);
 
     if (!printedCard) {
@@ -39,6 +42,31 @@ export class CardService {
       throw new NotFoundError('Sličica nije nađena.');
     }
 
+    const formId = cardTemplate.formId;
+    if (!!userId && formId && cardTemplate.form !== '1/1') {
+      const cardTemplates = await CardTemplate.find({
+        formId,
+      })
+        .populate('event')
+        .lean();
+
+      if (!cardTemplates) {
+        throw new NotFoundError('Sličice nisu pronađene.');
+      }
+      const templatesRes = [];
+      for (const ct of cardTemplates) {
+        const userCard = await UserCard.findOne({
+          userId,
+          cardTemplateId: ct._id,
+        });
+        let template = {
+          ...ct,
+          isCollected: !!userCard,
+        };
+        templatesRes.push(template);
+      }
+      return templatesRes;
+    }
     return {
       ...cardTemplate,
       isScanned: printedCard.isScanned,

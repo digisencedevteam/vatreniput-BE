@@ -6,6 +6,8 @@ export interface CardTemplate extends Document {
   videoLink: string;
   imageURLs: string[];
   event: typeof Schema.Types.ObjectId;
+  form?: string;
+  formId?: typeof Schema.Types.ObjectId;
 }
 
 const cardTemplateSchema = new Schema<CardTemplate>({
@@ -14,6 +16,8 @@ const cardTemplateSchema = new Schema<CardTemplate>({
   videoLink: { type: String, default: null },
   imageURLs: [{ type: String }],
   event: { type: Schema.Types.ObjectId, ref: 'Event' },
+  form: { type: String, required: false },
+  formId: { type: Schema.Types.ObjectId, required: false },
 });
 
 export default model<CardTemplate>(

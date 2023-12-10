@@ -60,11 +60,12 @@ export default class CardController {
     if (limit < 1 || limit > 100) {
       throw new BadRequestError('Stranica ne postoji.');
     }
-    const { cards, totalCount } = await this.cardService.getAllCardsFromAlbum(
-      user._id,
-      Number(page),
-      Number(limit)
-    );
+    const { cards, totalCount } =
+      await this.cardService.getAllCardsFromAlbum(
+        user._id,
+        Number(page),
+        Number(limit)
+      );
 
     return {
       cards,
@@ -73,7 +74,10 @@ export default class CardController {
   }
 
   @Get('/details/:printedCardId')
-  async getCardDetails(@Param('printedCardId') printedCardId: string) {
+  async getCardDetails(
+    @Param('printedCardId') printedCardId: string,
+    @Body() body: { userId?: string }
+  ) {
     if (!printedCardId) {
       throw new BadRequestError('Nedostaje ID sličice.');
     }
@@ -82,7 +86,10 @@ export default class CardController {
       throw new BadRequestError('Sličica nije važeća.');
     }
 
-    return this.cardService.getCardDetails(printedCardId);
+    return this.cardService.getCardDetails(
+      printedCardId,
+      body?.userId
+    );
   }
 
   @Get('/:code')
@@ -128,12 +135,13 @@ export default class CardController {
     if (!event) {
       throw new NotFoundError('Prvenstvo nije pronađeno.');
     }
-    const { cards, totalCount } = await this.cardService.getCardsForEvent(
-      eventId,
-      user._id,
-      Number(page),
-      Number(limit)
-    );
+    const { cards, totalCount } =
+      await this.cardService.getCardsForEvent(
+        eventId,
+        user._id,
+        Number(page),
+        Number(limit)
+      );
 
     return {
       cards,
@@ -143,7 +151,9 @@ export default class CardController {
 
   @Get('/stats/all')
   @Authorized()
-  async getCardStats(@CurrentUser({ required: true }) user: UserType) {
+  async getCardStats(
+    @CurrentUser({ required: true }) user: UserType
+  ) {
     return await this.cardService.getCardStats(user._id);
   }
 
@@ -155,15 +165,14 @@ export default class CardController {
   ) {
     try {
       const userId = user._id;
-      const [cardStats, cards, topEvents, quizzes, votings] = await Promise.all(
-        [
+      const [cardStats, cards, topEvents, quizzes, votings] =
+        await Promise.all([
           this.cardService.getCardStats(userId),
           this.cardService.getRecentCardsFromAlbum(userId),
           this.eventService.getTopEvents(userId),
           this.quizService.getRecentQuizzes(userId),
           this.votingService.getRecentUnvotedVotings(userId),
-        ]
-      );
+        ]);
       const result = {
         ...cardStats,
         cards,
