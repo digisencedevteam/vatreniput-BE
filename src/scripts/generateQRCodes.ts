@@ -89,15 +89,41 @@ const writeToFile = async (
     console.error('Error writing to file:', error);
   }
 };
+const padToWidth = (text: any, width: any) => text.padEnd(width, ' ');
+
+const calculateMaxCellLength = () => {
+  const samplePrintedCardId = new mongoose.Types.ObjectId().toString();
+  return (
+    `${BASE_URL}${samplePrintedCardId}/`.length + `${TOTAL_RECORDS}`.length
+  );
+};
+
+const calculateMaxColumnLengths = (
+  ordinalNumbersWithPositions: OrdinalNumbersWithPositions
+) => {
+  const samplePrintedCardId = new mongoose.Types.ObjectId().toString();
+  const baseLength = `${BASE_URL}${samplePrintedCardId}/`.length;
+
+  let maxColumnLengths: { [key: string]: number } = {};
+  for (const ordinalNumber in ordinalNumbersWithPositions) {
+    maxColumnLengths[ordinalNumber] =
+      baseLength + TOTAL_RECORDS.toString().length;
+  }
+  return maxColumnLengths;
+};
 
 const processStickers = async () => {
   const [ordinalNumbersWithPositions] = readClientExcelFile(clientFilePath);
   let globalCounter = 1;
 
-  // Determine the maximum width needed for any cell
-  const samplePrintedCardId = new mongoose.Types.ObjectId().toString();
-  const maxCellWidth =
-    `${BASE_URL}${samplePrintedCardId}/`.length + `${TOTAL_RECORDS}`.length;
+  // Calculate the maximum length for each column based on TOTAL_RECORDS
+  const maxColumnLengths = calculateMaxColumnLengths(
+    ordinalNumbersWithPositions
+  );
+
+  const sortedCellRefs = Object.keys(ordinalNumbersWithPositions).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true })
+  );
 
   for (let fileIndex = 0; fileIndex < FILES; fileIndex++) {
     const startingCounter = globalCounter;
@@ -106,23 +132,19 @@ const processStickers = async () => {
       TOTAL_RECORDS
     );
 
-    const headerRow = Object.keys(ordinalNumbersWithPositions)
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      .map((cellRef) =>
-        padHeader(
-          `Sticker ${ordinalNumbersWithPositions[cellRef]}`,
-          maxCellWidth
-        )
-      )
+    // Create the header row with adjusted column titles
+    const headerRow = sortedCellRefs
+      .map((cellRef) => {
+        const header = `Sticker ${ordinalNumbersWithPositions[cellRef]}`;
+        return header.padEnd(maxColumnLengths[cellRef], ' ');
+      })
       .join('\t');
 
     const lines = [headerRow];
 
     while (globalCounter <= endingCounter && globalCounter <= TOTAL_RECORDS) {
       const rowArray = [];
-      for (const cellRef of Object.keys(ordinalNumbersWithPositions).sort(
-        (a, b) => a.localeCompare(b, undefined, { numeric: true })
-      )) {
+      for (const cellRef of sortedCellRefs) {
         if (globalCounter > TOTAL_RECORDS || globalCounter > endingCounter) {
           break;
         }
@@ -131,9 +153,13 @@ const processStickers = async () => {
         const printedCardId = await processCardByOrdinalNumber(ordinalNumber);
         const formattedCounter = globalCounter
           .toString()
-          .padStart(`${TOTAL_RECORDS}`.length, '0');
-        const urlWithCounter = `${BASE_URL}${printedCardId}/${formattedCounter}`;
-        rowArray.push(urlWithCounter.padEnd(maxCellWidth, ' '));
+          .padStart(TOTAL_RECORDS.toString().length, '0');
+        const urlWithCounter =
+          `${BASE_URL}${printedCardId}/${formattedCounter}`.padEnd(
+            maxColumnLengths[cellRef],
+            ' '
+          );
+        rowArray.push(urlWithCounter);
         globalCounter++;
       }
       lines.push(rowArray.join('\t'));
