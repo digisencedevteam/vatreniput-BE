@@ -13,7 +13,7 @@ dotenv.config();
 const MONGODB_URI = 'mongodb://localhost:27017/vatreniput';
 const NUM_ROWS = 62500;
 const BASE_URL = 'https://vatreniput-fe.vercel.app/card/';
-const clientFilePath = './testShema1.xlsx';
+const clientFilePath = './sheet_1.xlsx';
 const TOTAL_RECORDS = 13536;
 const RECORDS_PER_FILE = 4512;
 const FILES = 3;
@@ -165,10 +165,7 @@ const processStickers = async () => {
       lines.push(rowArray.join('\t'));
     }
 
-    const filePath = path.join(
-      __dirname,
-      `generatedCodesShema1_Part${fileIndex + 1}.txt`
-    );
+    const filePath = path.join(__dirname, `Shema1_${fileIndex + 1}.txt`);
     await writeToFile(lines, filePath);
   }
 };
