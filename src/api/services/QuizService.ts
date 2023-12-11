@@ -145,7 +145,6 @@ export class QuizService {
 
     const formattedQuizzes = [];
     for (const quiz of quizzes) {
-      // Fetching all status entries for each quiz and formatting them as an array
       const statuses = await QuizStatus.find({ quizId: quiz._id, userId })
         .sort({ createdAt: -1 })
         .lean();
