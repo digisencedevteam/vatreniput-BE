@@ -12,10 +12,10 @@ dotenv.config();
 //   'mongodb+srv://vatreni:vatreniputmongodb@serverlessinstance0-vat.hs8h0mi.mongodb.net/?retryWrites=true&w=majority';
 const MONGODB_URI = 'mongodb://localhost:27017/vatreniput';
 const NUM_ROWS = 62500;
-const BASE_URL = 'https://vatreniput-fe.vercel.app/card/';
-const clientFilePath = './sheet_1.xlsx';
-const TOTAL_RECORDS = 13536;
-const RECORDS_PER_FILE = 4512;
+const BASE_URL = 'https://vatreniput.hns.family/card/';
+const clientFilePath = './sheet_6.xlsx';
+const TOTAL_RECORDS = 13500;
+const RECORDS_PER_FILE = 4500;
 const FILES = 3;
 
 const connectToDatabase = async () => {
@@ -70,6 +70,7 @@ const createPrintedCard = async (cardTemplateId: mongoose.Types.ObjectId) => {
     });
     const test = await newPrintedCard.save();
     console.log('NOVI ZAPIS u printedCards ' + test);
+    console.log('\x1b[31m%s\x1b[0m');
     return newPrintedCard;
   } catch (error) {
     console.error('Error creating printed card:', error);
@@ -116,7 +117,6 @@ const processStickers = async () => {
   const [ordinalNumbersWithPositions] = readClientExcelFile(clientFilePath);
   let globalCounter = 1;
 
-  // Calculate the maximum length for each column based on TOTAL_RECORDS
   const maxColumnLengths = calculateMaxColumnLengths(
     ordinalNumbersWithPositions
   );
@@ -132,7 +132,6 @@ const processStickers = async () => {
       TOTAL_RECORDS
     );
 
-    // Create the header row with adjusted column titles
     const headerRow = sortedCellRefs
       .map((cellRef) => {
         const header = `Sticker ${ordinalNumbersWithPositions[cellRef]}`;
@@ -155,7 +154,7 @@ const processStickers = async () => {
           .toString()
           .padStart(TOTAL_RECORDS.toString().length, '0');
         const urlWithCounter =
-          `${BASE_URL}${printedCardId}/${formattedCounter}`.padEnd(
+          `${BASE_URL}${printedCardId}/${ordinalNumber}`.padEnd(
             maxColumnLengths[cellRef],
             ' '
           );
@@ -165,7 +164,7 @@ const processStickers = async () => {
       lines.push(rowArray.join('\t'));
     }
 
-    const filePath = path.join(__dirname, `Shema1_${fileIndex + 1}.txt`);
+    const filePath = path.join(__dirname, `Sheet-${fileIndex + 1}.txt`);
     await writeToFile(lines, filePath);
   }
 };
