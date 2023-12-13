@@ -159,6 +159,37 @@ export class VotingController {
     const updatedVoting = await this.votingService.updateVoting(id, updateData);
     return res.json(updatedVoting);
   }
+  @Authorized()
+  @Get('/voted/:page/:limit')
+  public async getVotedVotings(
+    @CurrentUser({ required: true }) user: UserType,
+    @Param('page') page: number,
+    @Param('limit') limit: number,
+    @Res() res: Response
+  ): Promise<any> {
+    const result = await this.votingService.getVotedVotings(
+      user._id,
+      page,
+      limit
+    );
+    return res.json(result);
+  }
+
+  @Authorized()
+  @Get('/unvoted/:page/:limit')
+  public async getUnvotedVotings(
+    @CurrentUser({ required: true }) user: UserType,
+    @Param('page') page: number,
+    @Param('limit') limit: number,
+    @Res() res: Response
+  ): Promise<any> {
+    const result = await this.votingService.getUnvotedVotings(
+      user._id,
+      page,
+      limit
+    );
+    return res.json(result);
+  }
 
   @Authorized()
   @Delete('/:id')

@@ -284,6 +284,58 @@ export class VotingService {
     };
   }
 
+  public async getVotedVotings(
+    userId: string,
+    page: number,
+    limit: number
+  ): Promise<any> {
+    const skip = (page - 1) * limit;
+    const userVotes = await UserVote.find({ user: userId })
+      .select('voting')
+      .lean();
+    const votedVotingIds = userVotes.map((vote) => vote.voting);
+
+    const votings = await Voting.find({ _id: { $in: votedVotingIds } })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const totalCount = await Voting.countDocuments({
+      _id: { $in: votedVotingIds },
+    });
+
+    return {
+      votings,
+      totalCount,
+    };
+  }
+
+  public async getUnvotedVotings(
+    userId: string,
+    page: number,
+    limit: number
+  ): Promise<any> {
+    const skip = (page - 1) * limit;
+    const userVotes = await UserVote.find({ user: userId })
+      .select('voting')
+      .lean();
+    const votedVotingIds = userVotes.map((vote) => vote.voting);
+
+    const votings = await Voting.find({ _id: { $nin: votedVotingIds } })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const totalCount = await Voting.countDocuments({
+      _id: { $nin: votedVotingIds },
+    });
+
+    return {
+      votings,
+      totalCount,
+    };
+  }
+
   async deleteVoting(voting: any): Promise<any> {
     await VotingOption.deleteMany({
       _id: { $in: voting.votingOptions },
