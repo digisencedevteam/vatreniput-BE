@@ -13,7 +13,7 @@ dotenv.config();
 const MONGODB_URI = 'mongodb://localhost:27017/vatreniput';
 const NUM_ROWS = 62500;
 const BASE_URL = 'https://vatreniput.hns.family/card/';
-const clientFilePath = './sheet_6.xlsx';
+const clientFilePath = './forma5/sheet_92.xlsx';
 const TOTAL_RECORDS = 13500;
 const RECORDS_PER_FILE = 4500;
 const FILES = 3;
@@ -70,7 +70,6 @@ const createPrintedCard = async (cardTemplateId: mongoose.Types.ObjectId) => {
     });
     const test = await newPrintedCard.save();
     console.log('NOVI ZAPIS u printedCards ' + test);
-    console.log('\x1b[31m%s\x1b[0m');
     return newPrintedCard;
   } catch (error) {
     console.error('Error creating printed card:', error);
@@ -89,14 +88,6 @@ const writeToFile = async (
   } catch (error) {
     console.error('Error writing to file:', error);
   }
-};
-const padToWidth = (text: any, width: any) => text.padEnd(width, ' ');
-
-const calculateMaxCellLength = () => {
-  const samplePrintedCardId = new mongoose.Types.ObjectId().toString();
-  return (
-    `${BASE_URL}${samplePrintedCardId}/`.length + `${TOTAL_RECORDS}`.length
-  );
 };
 
 const calculateMaxColumnLengths = (
@@ -167,11 +158,6 @@ const processStickers = async () => {
     const filePath = path.join(__dirname, `Sheet-${fileIndex + 1}.txt`);
     await writeToFile(lines, filePath);
   }
-};
-
-const padHeader = (header: string, maxWidth: number) => {
-  const paddingNeeded = maxWidth - header.length;
-  return header + ' '.repeat(paddingNeeded);
 };
 
 const run = async () => {
