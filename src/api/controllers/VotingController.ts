@@ -11,7 +11,6 @@ import {
   Get,
   CurrentUser,
   NotFoundError,
-  QueryParam,
 } from 'routing-controllers';
 import { Response } from 'express';
 import { VotingService } from '../services/VotingService';
