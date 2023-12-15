@@ -31,9 +31,6 @@ export class AlbumService {
       { isUsed: true },
       { new: true }
     );
-    if (!album) {
-      throw new Error('Album not found');
-    }
     return album;
   }
 
@@ -47,7 +44,6 @@ export class AlbumService {
     });
 
     const savedAlbum = await album.save();
-
     return savedAlbum.toObject();
   }
 }

@@ -10,40 +10,58 @@ import {
   Authorized,
   Get,
   CurrentUser,
+  NotFoundError,
 } from 'routing-controllers';
 import { Response } from 'express';
-
-import { VotingService } from '../services/VotingService'; // Replace with your actual path
-import {
-  CreateVotingBody,
-  SubmitVote,
-} from './requests/VotingRequests';
+import { VotingService } from '../services/VotingService';
+import { CreateVotingBody, SubmitVote } from './requests/VotingRequests';
 import { UserType } from '../../types';
 import mongoose from 'mongoose';
+import { isValidDate } from '../helpers/helper';
+import { UserService } from '../services/UserService';
 
 @JsonController('/votings')
 export class VotingController {
   private votingService: VotingService;
+  private userService: UserService;
+
   constructor() {
     this.votingService = new VotingService();
+    this.userService = new UserService();
   }
+
   @Authorized()
   @Get('/')
   public async getAllVotings(
     @CurrentUser({ required: true }) user: UserType,
     @Res() res: Response
   ): Promise<any> {
-    try {
-      const votings = await this.votingService.getAllVotings(
-        user._id
-      );
-      return res.json(votings);
-    } catch (error) {
-      console.log(error);
-      return res
-        .status(500)
-        .json({ error: 'An error occurred while fetching votings.' });
+    const votings = await this.votingService.getAllVotings(user._id);
+    if (!votings) {
+      throw new NotFoundError('Glasanja nisu pronađena za korisnika.');
     }
+    return res.json(votings);
+  }
+
+  @Authorized()
+  @Get('/user/:userId/top-votes')
+  public async getUserTopVotedOptions(
+    @Param('userId') userId: string,
+    @Res() res: Response
+  ): Promise<any> {
+    const user = await this.userService.findOneById(userId);
+    if (!user) {
+      throw new NotFoundError('Korisnik nije pronađen.');
+    }
+    const results = await this.votingService.getUserVotedVotingsWithTopOption(
+      userId
+    );
+    if (!results) {
+      throw new NotFoundError(
+        'Nisu pronađeni najpopulariniji odabiri iz glasanja koje je korisnik riješio.'
+      );
+    }
+    return res.json(results);
   }
 
   @Authorized()
@@ -53,35 +71,24 @@ export class VotingController {
     @Res() res: Response,
     @Param('votingId') votingId: string
   ): Promise<any> {
-    try {
-      const voting =
-        await this.votingService.findVotingByIdWithOptions(
-          votingId,
-          user._id
-        );
-      if (!voting) {
-        throw new BadRequestError('Voting not found!');
-      }
-      return res.json(voting);
-    } catch (error) {
-      console.log(error);
-      return res
-        .status(500)
-        .json({ error: 'An error occurred while fetching votings.' });
-    }
+    const voting = await this.votingService.findVotingByIdWithOptions(
+      votingId,
+      user._id
+    );
+    return res.json(voting);
   }
 
   @Authorized()
   @Get('/:votingId/results')
-  async getResults(
-    @Res() res: Response,
-    @Param('votingId') votingId: string
-  ) {
+  async getResults(@Res() res: Response, @Param('votingId') votingId: string) {
+    const voting = await this.votingService.findVotingById(votingId);
+    if (!voting) {
+      throw new NotFoundError('Glasanje nije pronađeno.');
+    }
     const results = await this.votingService.getVotingResults(
       new mongoose.Types.ObjectId(votingId)
     );
     return res.json(results);
-    // Add your logic here to also fetch and include details about the voting itself
   }
 
   @Authorized()
@@ -90,14 +97,13 @@ export class VotingController {
     @Body() votingData: CreateVotingBody,
     @Res() res: Response
   ) {
-    try {
-      const newVoting = await this.votingService.createVoting(
-        votingData
+    if (!votingData.title || !votingData.votingOptions) {
+      throw new BadRequestError(
+        'Nedostaju podaci za kreiranje novog glasanja.'
       );
-      return res.status(200).json(newVoting);
-    } catch (error: any) {
-      throw new BadRequestError(error.message);
     }
+    const newVoting = await this.votingService.createVoting(votingData);
+    return res.status(200).json(newVoting);
   }
 
   @Authorized()
@@ -107,31 +113,27 @@ export class VotingController {
     @Body() body: SubmitVote,
     @Res() res: Response
   ) {
-    try {
-      const { votingId, votingOptionId } = body;
-      const voting = await this.votingService.findVotingById(
-        votingId
-      );
-      if (!voting) {
-        throw new BadRequestError('Wrong voting ID provided!');
-      }
-      const votingOpttion =
-        await this.votingService.findVotingOptionById(votingOptionId);
-      if (!votingOpttion) {
-        throw new BadRequestError('Wrong voting option ID provided!');
-      }
-      await this.votingService.submitUserVote(
-        user._id,
-        votingId,
-        votingOptionId
-      );
-      return res
-        .status(200)
-        .json({ message: 'Voting submitted successfully' });
-    } catch (error: any) {
-      throw new BadRequestError(error.message);
+    const { votingId, votingOptionId } = body;
+    if (!votingId) {
+      throw new BadRequestError('Nedostaje ID glasanja.');
     }
+    if (!votingOptionId) {
+      throw new BadRequestError('Nedostaje odabir opcije za glasanje.');
+    }
+    const voting = await this.votingService.findVotingById(votingId);
+    if (!voting) {
+      throw new NotFoundError('Glasanje nije pronađeno.');
+    }
+    const votingOption = await this.votingService.findVotingOptionById(
+      votingOptionId
+    );
+    if (!votingOption) {
+      throw new NotFoundError('Nije pronađea opcija za glasanje.');
+    }
+    await this.votingService.submitUserVote(user._id, votingId, votingOptionId);
+    return res.status(200).json({ message: 'Glasanje uspješno objavljeno.' });
   }
+
   @Authorized()
   @Put('/:id')
   public async updateVoting(
@@ -139,27 +141,33 @@ export class VotingController {
     @Body() updateData: any,
     @Res() res: Response
   ) {
-    try {
-      const updatedVoting = await this.votingService.updateVoting(
-        id,
-        updateData
+    if (
+      !updateData.title ||
+      !updateData.description ||
+      !updateData.availableUntil ||
+      !updateData.thumbnail
+    ) {
+      throw new BadRequestError(
+        'Nedostaju podaci za ažuriranje glasanja. Molim dodajte sve potrebne podatke.'
       );
-      return res.status(200).json(updatedVoting);
-    } catch (error: any) {
-      throw new BadRequestError(error.message);
     }
+    if (!isValidDate(updateData.availableUntil)) {
+      throw new BadRequestError(
+        'Datum završetka dostupnosti nije u pravom formatu. Molim odaberite valjani datum.'
+      );
+    }
+    const updatedVoting = await this.votingService.updateVoting(id, updateData);
+    return res.json(updatedVoting);
   }
+
   @Authorized()
   @Delete('/:id')
-  public async deleteVoting(
-    @Param('id') id: string,
-    @Res() res: Response
-  ) {
-    try {
-      const result = await this.votingService.deleteVoting(id);
-      return res.status(200).json(result);
-    } catch (error: any) {
-      throw new BadRequestError(error.message);
+  public async deleteVoting(@Param('id') id: string, @Res() res: Response) {
+    const voting = await this.votingService.findVotingById(id);
+    if (!voting) {
+      throw new NotFoundError('Glasanje nije pronađeno');
     }
+    const result = await this.votingService.deleteVoting(voting);
+    return res.json(result);
   }
 }
