@@ -45,41 +45,6 @@ export class VotingController {
   }
 
   @Authorized()
-  @Get('/voted')
-  public async getVotedVotings(
-    @CurrentUser({ required: true }) user: UserType,
-    @QueryParam('page') page: number = 1,
-    @QueryParam('limit') limit: number = 10,
-
-    @Res() res: Response
-  ): Promise<any> {
-    const userId = user._id;
-    const result = await this.votingService.getVotedVotings(
-      userId,
-      page,
-      limit
-    );
-    return res.json(result);
-  }
-
-  @Authorized()
-  @Get('/unvoted')
-  public async getUnvotedVotings(
-    @CurrentUser({ required: true }) user: UserType,
-    @QueryParam('page') page: number = 1,
-    @QueryParam('limit') limit: number = 10,
-    @Res() res: Response
-  ): Promise<any> {
-    const userId = user._id;
-    const result = await this.votingService.getUnvotedVotings(
-      userId,
-      page,
-      limit
-    );
-    return res.json(result);
-  }
-
-  @Authorized()
   @Get('/user/:userId/top-votes')
   public async getUserTopVotedOptions(
     @Param('userId') userId: string,
