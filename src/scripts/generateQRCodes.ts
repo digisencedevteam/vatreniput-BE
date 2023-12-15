@@ -13,9 +13,9 @@ dotenv.config();
 const MONGODB_URI = 'mongodb://localhost:27017/vatreniput';
 const NUM_ROWS = 62500;
 const BASE_URL = 'https://vatreniput.hns.family/card/';
-const clientFilePath = './forma5/sheet_92.xlsx';
-const TOTAL_RECORDS = 13500;
-const RECORDS_PER_FILE = 4500;
+const clientFilePath = './form-data/forma5/sheet_92.xlsx';
+const TOTAL_RECORDS = 216000;
+const RECORDS_PER_FILE = 72000;
 const FILES = 3;
 
 const connectToDatabase = async () => {
