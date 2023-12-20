@@ -129,12 +129,11 @@ export class QuizService {
   }
 
   public async getRecentQuizzes(userId: string) {
-    const resolvedQuizResults = await QuizResult.find({
-      userId,
-    }).lean();
+    const resolvedQuizResults = await QuizResult.find({ userId }).lean();
     const resolvedQuizIds = resolvedQuizResults.map(
       (result: any) => result.quizId
     );
+
     const quizzes = await Quiz.find({
       _id: { $nin: resolvedQuizIds },
       availableUntil: { $gte: new Date() },
@@ -144,7 +143,28 @@ export class QuizService {
       .limit(2)
       .lean();
 
-    return quizzes;
+    const formattedQuizzes = [];
+    for (const quiz of quizzes) {
+      const statuses = await QuizStatus.find({ quizId: quiz._id, userId })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      const formattedQuiz = {
+        ...quiz,
+        _id: quiz._id.toString(),
+        status: statuses.map((status) => ({
+          _id: status._id.toString(),
+          userId: status.userId.toString(),
+          quizId: status.quizId.toString(),
+          status: status.status,
+          startTime: status.startTime,
+          __v: status.__v,
+        })),
+      };
+      formattedQuizzes.push(formattedQuiz);
+    }
+
+    return formattedQuizzes;
   }
 
   public async submitQuizResult(
