@@ -2,7 +2,10 @@ import bcrypt from 'bcrypt';
 import User from '../models/User';
 import { UserType } from '../../types';
 import Album from '../models/Album';
-import { generateSecureToken, sendVerificationEmail } from '../helpers/helper';
+import {
+  generateSecureToken,
+  sendVerificationEmail,
+} from '../helpers/helper';
 import {
   BadRequestError,
   HttpError,
@@ -11,22 +14,20 @@ import {
 } from 'routing-controllers';
 
 export class UserService {
-  public async registerUser(data: UserType, code: string) {
+  public async registerUser(data: UserType) {
     const { email, password, username, firstName, lastName } = data;
-    if (!email || !password || !username || !firstName || !lastName || !code) {
-      throw new BadRequestError('Nepotpuni podaci za registraciju korisnika.');
+    if (!email || !password || !username || !firstName || !lastName) {
+      throw new BadRequestError(
+        'Nepotpuni podaci za registraciju korisnika.'
+      );
     }
-    const existingUser = await User.findOne().or([{ email }, { username }]);
+    const existingUser = await User.findOne().or([
+      { email },
+      { username },
+    ]);
     if (existingUser) {
       throw new Error(
         'Već postoji korisnik sa tim emailom/korisničkim imenom.'
-      );
-    }
-    const album = await Album.findOne({ code });
-    if (!album || !!album.owner) {
-      throw new HttpError(
-        409,
-        'Album za registraciju korisnika ne postoji ili je već iskorišten.'
       );
     }
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -45,7 +46,11 @@ export class UserService {
     });
 
     const savedUser = await newUser.save();
-    await Album.findOneAndUpdate({ code }, { owner: savedUser._id });
+
+    const album = new Album({
+      owner: savedUser._id,
+    });
+    await album.save();
 
     return savedUser.toObject();
   }
@@ -55,7 +60,9 @@ export class UserService {
     return user;
   }
 
-  public async getUserByVerificationToken(token: string): Promise<any> {
+  public async getUserByVerificationToken(
+    token: string
+  ): Promise<any> {
     const user = await User.findOne({
       verificationToken: token,
     }).exec();
@@ -63,7 +70,9 @@ export class UserService {
     return user;
   }
 
-  public async findOneWithoutPassword(_id: string): Promise<UserType | null> {
+  public async findOneWithoutPassword(
+    _id: string
+  ): Promise<UserType | null> {
     const user = await User.findOne({ _id }).lean();
     if (user) {
       const { password, ...userWithoutPassword } = user;
@@ -75,7 +84,9 @@ export class UserService {
     return null;
   }
 
-  public async findOneByEmail(email: string): Promise<UserType | null> {
+  public async findOneByEmail(
+    email: string
+  ): Promise<UserType | null> {
     const user = await User.findOne({ email }).lean();
     return user;
   }
@@ -94,9 +105,13 @@ export class UserService {
       throw new NotFoundError('Korisnik nije pronađen.');
     }
     try {
-      const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
-        new: true,
-      });
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        updateData,
+        {
+          new: true,
+        }
+      );
       if (!updatedUser) {
         throw new BadRequestError(
           'Neuspješno ažuriranje korisničkih podataka.'

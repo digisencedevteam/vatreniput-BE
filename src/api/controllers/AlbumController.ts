@@ -20,37 +20,6 @@ export default class AlbumController {
     this.albumService = new AlbumService();
   }
 
-  @Get('/:code')
-  @Authorized()
-  async getAlbumByCode(@Param('code') code: string) {
-    if (!code) {
-      throw new BadRequestError('Nedostaje kod albuma.');
-    }
-    const album = await this.albumService.findOneByCode(code);
-    if (!album) {
-      throw new NotFoundError('Album ne postoji.');
-    }
-
-    return album;
-  }
-
-  @Get('/validate/:code')
-  async validateAlbumByCode(@Param('code') code: string) {
-    if (!code) {
-      throw new BadRequestError('Nedostaje kod albuma.');
-    }
-    const album = await this.albumService.findOneByCode(code);
-    if (!album) {
-      throw new NotFoundError('Album ne postoji.');
-    }
-    const isAlbumValid = await this.albumService.validateOneByCode(code);
-    if (!isAlbumValid) {
-      throw new BadRequestError('Album s danim kodom nije validan.');
-    }
-
-    return isAlbumValid;
-  }
-
   @Put('/use/:id')
   @Authorized()
   async useAlbum(@Param('id') id: string) {
@@ -86,7 +55,9 @@ export default class AlbumController {
     }
     const savedAlbum = await this.albumService.create(code, isUsed);
     if (!savedAlbum) {
-      throw new InternalServerError('Album nije spremljen za korisnika.');
+      throw new InternalServerError(
+        'Album nije spremljen za korisnika.'
+      );
     }
 
     return savedAlbum;

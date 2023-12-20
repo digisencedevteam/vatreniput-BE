@@ -30,16 +30,14 @@ export default class UserController {
     this.authService = new AuthService();
   }
 
-  @Post('/register/:code')
+  @Post('/register')
   async register(
-    @Param('code') code: string,
     @Body()
     requestBody: UserType
   ) {
-    if (!code) {
-      throw new BadRequestError('Nedostaje kod albuma.');
-    }
-    const savedUser = await this.userService.registerUser(requestBody, code);
+    const savedUser = await this.userService.registerUser(
+      requestBody
+    );
     return savedUser;
   }
 
@@ -68,13 +66,18 @@ export default class UserController {
       user.password || ''
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedError('Pogrešna lozinka. Molim pokušajte ponovno.');
+      throw new UnauthorizedError(
+        'Pogrešna lozinka. Molim pokušajte ponovno.'
+      );
     }
-    const accessToken = await this.authService.generateAccessToken(user._id);
-    const refreshToken = await this.authService.generateRefreshToken(user._id);
-    const returnedUser = await this.userService.findOneWithoutPassword(
+    const accessToken = await this.authService.generateAccessToken(
       user._id
     );
+    const refreshToken = await this.authService.generateRefreshToken(
+      user._id
+    );
+    const returnedUser =
+      await this.userService.findOneWithoutPassword(user._id);
     if (!returnedUser) {
       throw new NotFoundError('Korisnik nije pronađen.');
     }
@@ -91,7 +94,9 @@ export default class UserController {
   @Get('/me')
   @Authorized()
   async getMyInfo(@CurrentUser({ required: true }) user: UserType) {
-    const me = await this.userService.findOneWithoutPassword(user._id);
+    const me = await this.userService.findOneWithoutPassword(
+      user._id
+    );
     if (!me) {
       throw new NotFoundError('Korisnik nije pronađen.');
     }
@@ -110,13 +115,17 @@ export default class UserController {
     if (Object.keys(body).length === 0) {
       return new BadRequestError('Nedostaju podaci iz body-a');
     }
-    const targetUser = await this.userService.findOneWithoutPassword(userId);
+    const targetUser = await this.userService.findOneWithoutPassword(
+      userId
+    );
     console.log(targetUser);
     if (!targetUser) {
       return new NotFoundError('Korisnik nije pronađen.');
     }
     if (targetUser._id !== user._id.toString()) {
-      throw new ForbiddenError('Nemate pristup za izvršavanje ove radnje.');
+      throw new ForbiddenError(
+        'Nemate pristup za izvršavanje ove radnje.'
+      );
     }
     if (body.email) {
       const emailResult = Utils.validEmail(body.email);
@@ -149,16 +158,20 @@ export default class UserController {
     @Param('userId') userId: string,
     @Res() response: any
   ): Promise<void> {
-    const userToDelete = await this.userService.findOneWithoutPassword(userId);
+    const userToDelete =
+      await this.userService.findOneWithoutPassword(userId);
     if (!userToDelete) {
       throw new NotFoundError('Korisnik nije pronađen.');
     }
-    const userAccess = await this.userService.checkUserAccessForTargetUser(
-      user,
-      userToDelete
-    );
+    const userAccess =
+      await this.userService.checkUserAccessForTargetUser(
+        user,
+        userToDelete
+      );
     if (!userAccess) {
-      throw new ForbiddenError('Nemate pristup za izvršavanje ove radnje.');
+      throw new ForbiddenError(
+        'Nemate pristup za izvršavanje ove radnje.'
+      );
     }
     await this.userService.deleteUser(userId);
     return response.status(200).send({});

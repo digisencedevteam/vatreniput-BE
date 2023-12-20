@@ -12,19 +12,6 @@ export class AlbumService {
     return album;
   }
 
-  public async findOneByCode(code: string) {
-    const album = await Album.findOne({ code });
-    return album;
-  }
-
-  public async validateOneByCode(code: string) {
-    const album = await Album.findOne({ code }).exec();
-    if (!album || !!album.owner) {
-      return false;
-    }
-    return true;
-  }
-
   public async updateAlbumUsed(id: string) {
     const album = await Album.findByIdAndUpdate(
       id,
